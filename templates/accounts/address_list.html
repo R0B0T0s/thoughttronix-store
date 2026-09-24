@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Your Addresses — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="text-3xl font-bold">Your Addresses</h1>
+    <a href="{% url 'accounts:address_create' %}" class="btn btn-primary btn-sm">
+      + Add address
+    </a>
+  </div>
+
+  <div id="address-list" class="mt-6">
+    {% include "accounts/partials/_address_list.html" %}
+  </div>
+{% endblock %}

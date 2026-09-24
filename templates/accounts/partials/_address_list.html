@@ -1,0 +1,63 @@
+{# The address book's list — swapped whole into #address-list by the #}
+{# default-shipping/default-billing toggle buttons, via HTMX. #}
+{% if addresses %}
+  <div class="overflow-x-auto rounded-box bg-base-100 shadow-md">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Address</th>
+          <th>Defaults</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for address in addresses %}
+          <tr>
+            <td class="font-semibold">{{ address.label }}</td>
+            <td>
+              {{ address.recipient_name }}<br />
+              {{ address.street }}{% if address.line2 %}, {{ address.line2 }}{% endif %}<br />
+              {{ address.city }}, {{ address.state }} {{ address.zip_code }}
+            </td>
+            <td>
+              {% if address.is_default_shipping %}
+                <span class="badge badge-primary badge-outline">Default shipping</span>
+              {% endif %}
+              {% if address.is_default_billing %}
+                <span class="badge badge-secondary badge-outline">Default billing</span>
+              {% endif %}
+            </td>
+            <td class="text-right whitespace-nowrap">
+              {% if not address.is_default_shipping %}
+                <button class="btn btn-ghost btn-xs"
+                        hx-post="{% url 'accounts:address_default_shipping' address.pk %}"
+                        hx-target="#address-list">
+                  Set default shipping
+                </button>
+              {% endif %}
+              {% if not address.is_default_billing %}
+                <button class="btn btn-ghost btn-xs"
+                        hx-post="{% url 'accounts:address_default_billing' address.pk %}"
+                        hx-target="#address-list">
+                  Set default billing
+                </button>
+              {% endif %}
+              <a href="{% url 'accounts:address_update' address.pk %}" class="btn btn-ghost btn-xs">Edit</a>
+              <a href="{% url 'accounts:address_delete' address.pk %}" class="btn btn-ghost btn-xs text-error">Delete</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="py-16 text-center">
+    <p class="text-5xl">📮</p>
+    <p class="mt-4 text-xl font-semibold">No saved addresses yet</p>
+    <p class="mt-2 opacity-70">Save one now and skip the typing at checkout.</p>
+    <a href="{% url 'accounts:address_create' %}" class="btn btn-primary btn-sm mt-6">
+      Add your first address
+    </a>
+  </div>
+{% endif %}

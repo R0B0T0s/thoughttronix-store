@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 
+from accounts.models import Address
 from orders.models import Cart, CartItem
 from products.models import Category, Product, Tag
 
@@ -72,3 +73,16 @@ def cart(customer):
 @pytest.fixture
 def cart_item(cart, product):
     return CartItem.objects.create(cart=cart, product=product, quantity=2)
+
+
+@pytest.fixture
+def address(customer):
+    return Address.objects.create(
+        user=customer,
+        label="Home",
+        recipient_name="Casey Monroe",
+        street="12 Cortex Lane",
+        city="Canyon",
+        state="TX",
+        zip_code="79015",
+    )

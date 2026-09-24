@@ -1,0 +1,33 @@
+{# The shipping address section's contents — swapped whole into #shipping-fields #}
+{# by the address picker below, via HTMX. #}
+{% if addresses %}
+  <div class="mb-4">
+    <label class="label mb-1" for="shipping-address-select">Use a saved address</label>
+    <select id="shipping-address-select" name="address" class="select w-full"
+            hx-get="{% url 'orders:load_shipping_address' %}"
+            hx-target="#shipping-fields"
+            hx-trigger="change"
+            hx-params="address">
+      <option value="" {% if not selected_address_id %}selected{% endif %}>Enter a new address</option>
+      {% for address in addresses %}
+        <option value="{{ address.pk }}" {% if selected_address_id == address.pk|stringformat:"s" %}selected{% endif %}>
+          {{ address.label }} — {{ address.street }}, {{ address.city }}, {{ address.state }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+{% endif %}
+
+<div class="grid gap-4 sm:grid-cols-2">
+  {% for field in form.shipping_fields %}
+    {% include "orders/partials/_field.html" %}
+  {% endfor %}
+</div>
+
+<div class="form-control mt-4">
+  <label class="label w-fit cursor-pointer justify-start gap-3" for="{{ form.save_shipping_address.id_for_label }}">
+    {{ form.save_shipping_address }}
+    <span class="label-text">{{ form.save_shipping_address.label }}</span>
+  </label>
+</div>
+{% include "orders/partials/_field.html" with field=form.shipping_address_label %}

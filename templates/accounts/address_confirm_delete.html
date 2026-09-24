@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Delete address — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="card mx-auto max-w-lg bg-base-100 shadow-md">
+    <div class="card-body">
+      <h2 class="card-title">Delete &ldquo;{{ address.label }}&rdquo;?</h2>
+      <p class="opacity-70">
+        This removes the address from your account. Past orders keep their
+        own copy of the address they were placed with.
+      </p>
+      <form method="post" class="mt-4 flex justify-end gap-2">
+        {% csrf_token %}
+        <a href="{% url 'accounts:address_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-error">Delete address</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}

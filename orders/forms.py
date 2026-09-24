@@ -10,71 +10,41 @@ and no ``clean()`` — none of its current rules need imperative validation.
 from django import forms
 from django.core.validators import RegexValidator
 
+from accounts.validators import US_STATES, zip_validator
+
 from .models import Order
 from .validators import validate_card_number, validate_expiry
 
-US_STATES = [
-    ("AL", "Alabama"),
-    ("AK", "Alaska"),
-    ("AZ", "Arizona"),
-    ("AR", "Arkansas"),
-    ("CA", "California"),
-    ("CO", "Colorado"),
-    ("CT", "Connecticut"),
-    ("DE", "Delaware"),
-    ("DC", "District of Columbia"),
-    ("FL", "Florida"),
-    ("GA", "Georgia"),
-    ("HI", "Hawaii"),
-    ("ID", "Idaho"),
-    ("IL", "Illinois"),
-    ("IN", "Indiana"),
-    ("IA", "Iowa"),
-    ("KS", "Kansas"),
-    ("KY", "Kentucky"),
-    ("LA", "Louisiana"),
-    ("ME", "Maine"),
-    ("MD", "Maryland"),
-    ("MA", "Massachusetts"),
-    ("MI", "Michigan"),
-    ("MN", "Minnesota"),
-    ("MS", "Mississippi"),
-    ("MO", "Missouri"),
-    ("MT", "Montana"),
-    ("NE", "Nebraska"),
-    ("NV", "Nevada"),
-    ("NH", "New Hampshire"),
-    ("NJ", "New Jersey"),
-    ("NM", "New Mexico"),
-    ("NY", "New York"),
-    ("NC", "North Carolina"),
-    ("ND", "North Dakota"),
-    ("OH", "Ohio"),
-    ("OK", "Oklahoma"),
-    ("OR", "Oregon"),
-    ("PA", "Pennsylvania"),
-    ("RI", "Rhode Island"),
-    ("SC", "South Carolina"),
-    ("SD", "South Dakota"),
-    ("TN", "Tennessee"),
-    ("TX", "Texas"),
-    ("UT", "Utah"),
-    ("VT", "Vermont"),
-    ("VA", "Virginia"),
-    ("WA", "Washington"),
-    ("WV", "West Virginia"),
-    ("WI", "Wisconsin"),
-    ("WY", "Wyoming"),
-]
-
-zip_validator = RegexValidator(
-    r"^\d{5}(-\d{4})?$", "Enter a ZIP code like 79016 or 79016-1234."
-)
 cvv_validator = RegexValidator(r"^\d{3,4}$", "Enter the 3- or 4-digit CVV.")
 
 
+SHIPPING_ADDRESS_FIELDS = [
+    "shipping_name",
+    "shipping_street",
+    "shipping_line2",
+    "shipping_city",
+    "shipping_state",
+    "shipping_zip",
+]
+BILLING_ADDRESS_FIELDS = [
+    "billing_name",
+    "billing_street",
+    "billing_line2",
+    "billing_city",
+    "billing_state",
+    "billing_zip",
+]
+
+
 class CheckoutForm(forms.Form):
-    """One page, one POST: contact, shipping, billing, payment."""
+    """One page, one POST: contact, shipping, billing, payment.
+
+    ``save_shipping_address``/``save_billing_address`` and their label
+    fields are checkout-only extras, not part of ``ADDRESS_FIELDS`` in
+    ``orders/services.py`` — ``place_order`` never sees them. They're
+    read directly by ``CheckoutView`` to optionally save an ``Address``
+    once the order itself has been placed.
+    """
 
     email = forms.EmailField(label="Email")
 
@@ -88,6 +58,12 @@ class CheckoutForm(forms.Form):
     shipping_zip = forms.CharField(
         label="ZIP code", max_length=10, validators=[zip_validator]
     )
+    save_shipping_address = forms.BooleanField(
+        label="Save this address to my account", required=False
+    )
+    shipping_address_label = forms.CharField(
+        label="Label (e.g. Home, Work)", max_length=50, required=False
+    )
 
     billing_name = forms.CharField(label="Full name", max_length=100)
     billing_street = forms.CharField(label="Street address", max_length=200)
@@ -98,6 +74,12 @@ class CheckoutForm(forms.Form):
     billing_state = forms.ChoiceField(label="State", choices=US_STATES)
     billing_zip = forms.CharField(
         label="ZIP code", max_length=10, validators=[zip_validator]
+    )
+    save_billing_address = forms.BooleanField(
+        label="Save this address to my account", required=False
+    )
+    billing_address_label = forms.CharField(
+        label="Label (e.g. Home, Work)", max_length=50, required=False
     )
 
     card_number = forms.CharField(
@@ -112,7 +94,9 @@ class CheckoutForm(forms.Form):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(widget, forms.Select):
+            if isinstance(widget, forms.CheckboxInput):
+                widget.attrs["class"] = "checkbox"
+            elif isinstance(widget, forms.Select):
                 widget.attrs["class"] = "select w-full"
             else:
                 widget.attrs["class"] = "input w-full"
@@ -120,10 +104,10 @@ class CheckoutForm(forms.Form):
     # Field groups for the template — the form owns its own structure.
 
     def shipping_fields(self):
-        return [self[name] for name in self.fields if name.startswith("shipping_")]
+        return [self[name] for name in SHIPPING_ADDRESS_FIELDS]
 
     def billing_fields(self):
-        return [self[name] for name in self.fields if name.startswith("billing_")]
+        return [self[name] for name in BILLING_ADDRESS_FIELDS]
 
     def card_fields(self):
         return [self[name] for name in self.fields if name.startswith("card_")]

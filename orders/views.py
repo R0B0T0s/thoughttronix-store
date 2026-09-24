@@ -15,6 +15,7 @@ from django.views import View
 from django.views.generic import DetailView, FormView, ListView, TemplateView
 
 from accounts.mixins import StaffRequiredMixin
+from accounts.models import Address
 from products.models import Product
 
 from .forms import CheckoutForm, OrderStatusForm
@@ -85,6 +86,20 @@ class RemoveCartItemView(CartItemActionView):
         item.delete()
 
 
+def _address_initial(prefix, address):
+    """The ``CheckoutForm`` initial data for one address slot ("shipping"
+    or "billing"), from a saved ``Address`` — shared by the checkout
+    page's first render and its HTMX address-picker swap."""
+    return {
+        f"{prefix}_name": address.recipient_name,
+        f"{prefix}_street": address.street,
+        f"{prefix}_line2": address.line2,
+        f"{prefix}_city": address.city,
+        f"{prefix}_state": address.state,
+        f"{prefix}_zip": address.zip_code,
+    }
+
+
 class CheckoutView(LoginRequiredMixin, FormView):
     """The single checkout page: validate the form, hand off to the service.
 
@@ -116,16 +131,117 @@ class CheckoutView(LoginRequiredMixin, FormView):
             return redirect("orders:cart")
         return super().dispatch(request, *args, **kwargs)
 
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["email"] = self.request.user.email
+        default_shipping = Address.objects.filter(
+            user=self.request.user, is_default_shipping=True
+        ).first()
+        if default_shipping:
+            initial.update(_address_initial("shipping", default_shipping))
+        default_billing = Address.objects.filter(
+            user=self.request.user, is_default_billing=True
+        ).first()
+        if default_billing:
+            initial.update(_address_initial("billing", default_billing))
+        return initial
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cart"] = Cart.for_user(self.request.user)
+        addresses = Address.objects.filter(user=self.request.user)
+        context["addresses"] = addresses
+        default_shipping = addresses.filter(is_default_shipping=True).first()
+        default_billing = addresses.filter(is_default_billing=True).first()
+        context["selected_shipping_address_id"] = (
+            str(default_shipping.pk) if default_shipping else ""
+        )
+        context["selected_billing_address_id"] = (
+            str(default_billing.pk) if default_billing else ""
+        )
         return context
 
     def form_valid(self, form):
         cart = Cart.for_user(self.request.user)
         order = place_order(cart, self.request.user, form.cleaned_data)
+        self._save_addresses(form.cleaned_data)
         messages.success(self.request, f"Order {order.number} placed. Thank you!")
         return redirect(reverse("orders:confirmation", kwargs={"pk": order.pk}))
+
+    def _save_addresses(self, data):
+        """Optionally save the typed shipping/billing address to the
+        customer's account, per the checkout page's "save this address"
+        checkboxes. A freshly saved address becomes the default for its
+        purpose only when the customer doesn't already have one.
+        """
+        user = self.request.user
+        if data["save_shipping_address"]:
+            address = Address.objects.create(
+                user=user,
+                label=data["shipping_address_label"] or "Shipping address",
+                recipient_name=data["shipping_name"],
+                street=data["shipping_street"],
+                line2=data["shipping_line2"],
+                city=data["shipping_city"],
+                state=data["shipping_state"],
+                zip_code=data["shipping_zip"],
+            )
+            if not Address.objects.filter(user=user, is_default_shipping=True).exists():
+                address.make_default_shipping()
+        if data["save_billing_address"]:
+            address = Address.objects.create(
+                user=user,
+                label=data["billing_address_label"] or "Billing address",
+                recipient_name=data["billing_name"],
+                street=data["billing_street"],
+                line2=data["billing_line2"],
+                city=data["billing_city"],
+                state=data["billing_state"],
+                zip_code=data["billing_zip"],
+            )
+            if not Address.objects.filter(user=user, is_default_billing=True).exists():
+                address.make_default_billing()
+
+
+class LoadAddressFieldsView(LoginRequiredMixin, View):
+    """HTMX: swap one checkout address section from a saved address.
+
+    Renders a fresh, unbound ``CheckoutForm`` seeded only with that
+    section's initial data — the rest of the page, and whatever the
+    customer had already typed elsewhere, is untouched since only this
+    section's ``<div>`` is swapped. An empty/missing ``address`` clears
+    the section back to a blank "new address" state.
+    """
+
+    prefix = None
+    partial_template = None
+
+    def get(self, request):
+        address_id = request.GET.get("address") or None
+        initial = {}
+        if address_id:
+            address = get_object_or_404(Address, pk=address_id, user=request.user)
+            initial = _address_initial(self.prefix, address)
+        form = CheckoutForm(initial=initial)
+        return render(
+            request,
+            self.partial_template,
+            {
+                "form": form,
+                "addresses": Address.objects.filter(user=request.user),
+                "selected_address_id": address_id,
+            },
+        )
+
+
+class LoadShippingAddressView(LoadAddressFieldsView):
+    prefix = "shipping"
+    partial_template = "orders/partials/_shipping_fields.html"
+
+
+class LoadBillingAddressView(LoadAddressFieldsView):
+    prefix = "billing"
+    partial_template = "orders/partials/_billing_fields.html"
 
 
 class OwnOrdersMixin(LoginRequiredMixin):
