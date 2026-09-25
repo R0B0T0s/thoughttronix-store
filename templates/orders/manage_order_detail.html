@@ -79,6 +79,15 @@
           <button type="submit" class="btn btn-primary">Update</button>
         </form>
         <div class="mt-4 text-right">
+          {% if order.discount_amount %}
+            <p class="flex justify-between gap-4 text-sm opacity-70">
+              <span>Subtotal</span><span>${{ order.subtotal|intcomma }}</span>
+            </p>
+            <p class="flex justify-between gap-4 text-sm text-success">
+              <span>Discount ({{ order.coupon_code }})</span>
+              <span>&minus;${{ order.discount_amount|intcomma }}</span>
+            </p>
+          {% endif %}
           <p class="text-sm uppercase tracking-wide opacity-60">Order total</p>
           <p class="text-2xl font-bold text-primary">${{ order.total|intcomma }}</p>
         </div>

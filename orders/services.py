@@ -6,10 +6,13 @@ validated checkout into an order, all-or-nothing. Callers never touch
 """
 
 from collections.abc import Mapping
+from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import transaction
+
+from coupons.models import Coupon
 
 from .models import Cart, Order, OrderItem
 
@@ -46,6 +49,12 @@ def place_order(
     only the last four digits are stored; the full number and CVV never
     touch the database.
 
+    ``coupon_code`` is trusted, not re-validated: ``CheckoutForm`` already
+    confirmed it's redeemable against this cart and user before the view
+    ever calls this function. The coupon and its discount are denormalized
+    onto the order the same way addresses are, so retiring or deleting the
+    coupon afterward can't change what this order shows or owes.
+
     All-or-nothing: runs in a transaction, so a failure partway through
     leaves no partial order and the cart intact.
 
@@ -62,10 +71,16 @@ def place_order(
             "Remove them from the cart to check out."
         )
 
+    coupon = Coupon.objects.get(code=coupon_code) if coupon_code else None
+    discount_amount = coupon.discount_for(cart) if coupon else Decimal("0.00")
+
     card_digits = checkout_data["card_number"].replace(" ", "").replace("-", "")
     order = Order.objects.create(
         user=user,
-        total=cart.total(),
+        total=cart.total() - discount_amount,
+        coupon=coupon,
+        coupon_code=coupon.code if coupon else "",
+        discount_amount=discount_amount,
         card_last4=card_digits[-4:],
         **{name: checkout_data[name] for name in ADDRESS_FIELDS},
     )

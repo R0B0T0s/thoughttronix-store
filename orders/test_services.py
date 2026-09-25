@@ -1,13 +1,16 @@
 """place_order tests — coverage priority 3 in the PRD.
 
-Denormalization, cart emptying, atomicity, unavailable rejection, and
-the card_last4-only rule.
+Denormalization, cart emptying, atomicity, unavailable rejection,
+the card_last4-only rule, and coupon application.
 """
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 
+from coupons.models import Coupon
 from products.models import Product
 
 from .models import CartItem, Order, OrderItem
@@ -18,6 +21,14 @@ from .test_checkout_form import VALID_DATA
 @pytest.fixture
 def checkout_data():
     return dict(VALID_DATA)
+
+
+def coupon_window_start():
+    return timezone.now() - timedelta(days=1)
+
+
+def coupon_window_end():
+    return timezone.now() + timedelta(days=30)
 
 
 def test_creates_an_order_with_denormalized_snapshot(cart, cart_item, checkout_data):
@@ -124,7 +135,59 @@ def test_a_failure_midway_leaves_no_partial_order(
     assert CartItem.objects.count() == 2
 
 
-def test_the_coupon_seam_is_accepted_and_ignored(cart, cart_item, checkout_data):
-    order = place_order(cart, cart.user, checkout_data, coupon_code="THOUGHTS10")
+# --- Coupon application -------------------------------------------------
+
+
+def test_no_coupon_leaves_the_order_at_full_price(cart, cart_item, checkout_data):
+    order = place_order(cart, cart.user, checkout_data)
 
     assert order.total == Decimal("699.98")
+    assert order.discount_amount == Decimal("0")
+    assert order.coupon is None
+    assert order.coupon_code == ""
+
+
+def test_an_order_wide_coupon_discounts_the_whole_total(
+    cart, cart_item, checkout_data, coupon
+):
+    order = place_order(cart, cart.user, checkout_data, coupon_code=coupon.code)
+
+    assert order.discount_amount == Decimal("70.00")  # 10% of 699.98
+    assert order.total == Decimal("629.98")
+    assert order.coupon == coupon
+    assert order.coupon_code == "WELCOME10"
+
+
+def test_a_product_scoped_coupon_discounts_only_that_line(
+    cart, cart_item, checkout_data
+):
+    coupon = Coupon.objects.create(
+        code="SERAPHINE50",
+        discount_type=Coupon.DiscountType.FIXED,
+        discount_value=Decimal("50.00"),
+        valid_from=coupon_window_start(),
+        valid_until=coupon_window_end(),
+    )
+    coupon.products.add(cart_item.product)
+
+    order = place_order(cart, cart.user, checkout_data, coupon_code=coupon.code)
+
+    assert order.discount_amount == Decimal("50.00")
+    assert order.total == Decimal("649.98")
+
+
+def test_a_fixed_discount_larger_than_the_cart_floors_at_zero(
+    cart, cart_item, checkout_data
+):
+    coupon = Coupon.objects.create(
+        code="BIGSPENDER",
+        discount_type=Coupon.DiscountType.FIXED,
+        discount_value=Decimal("1000.00"),
+        valid_from=coupon_window_start(),
+        valid_until=coupon_window_end(),
+    )
+
+    order = place_order(cart, cart.user, checkout_data, coupon_code=coupon.code)
+
+    assert order.discount_amount == Decimal("699.98")
+    assert order.total == Decimal("0.00")

@@ -1,10 +1,15 @@
 """CheckoutForm tests — coverage priority 2 in the PRD.
 
 Each declarative rule rejects bad input with a field-specific error;
-a fully valid form passes. No database required.
+a fully valid form passes. Most of this needs no database — the coupon
+tests at the bottom are the exception, since redemption depends on a
+real cart and coupon.
 """
 
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 
 from .forms import CheckoutForm
 
@@ -67,7 +72,47 @@ def test_each_rule_rejects_bad_input_on_its_own_field(field, value):
     assert len(form.errors) == 1  # the error lands beside its field, alone
 
 
-def test_the_form_declares_no_imperative_validation():
-    """The showcase contract: declarative rules only, per the PRD."""
+def test_the_form_declares_only_one_imperative_rule():
+    """The showcase contract: declarative rules only, with one deliberate
+    exception — coupon redemption depends on the cart and user, not just
+    the field's own value, so it's the form's only ``clean_*`` method."""
     assert "clean" not in CheckoutForm.__dict__
-    assert not any(name.startswith("clean_") for name in CheckoutForm.__dict__)
+    imperative = [name for name in CheckoutForm.__dict__ if name.startswith("clean_")]
+    assert imperative == ["clean_coupon_code"]
+
+
+# --- Coupon redemption ---------------------------------------------------
+
+
+def test_coupon_code_is_optional():
+    assert form_with().is_valid()
+
+
+def test_a_valid_coupon_is_accepted(cart, cart_item, coupon):
+    form = CheckoutForm(
+        data={**VALID_DATA, "coupon_code": coupon.code}, cart=cart, user=cart.user
+    )
+
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["coupon_code"] == coupon
+
+
+def test_an_unknown_code_is_rejected(cart, cart_item):
+    form = CheckoutForm(
+        data={**VALID_DATA, "coupon_code": "NOPE"}, cart=cart, user=cart.user
+    )
+
+    assert not form.is_valid()
+    assert form.errors["coupon_code"] == ["That code isn't valid."]
+
+
+def test_an_expired_code_is_rejected(cart, cart_item, coupon):
+    coupon.valid_until = timezone.now() - timedelta(days=1)
+    coupon.save()
+
+    form = CheckoutForm(
+        data={**VALID_DATA, "coupon_code": coupon.code}, cart=cart, user=cart.user
+    )
+
+    assert not form.is_valid()
+    assert form.errors["coupon_code"] == ["This code has expired."]

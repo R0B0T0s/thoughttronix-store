@@ -3,14 +3,17 @@
 Every rule is visible at its field declaration, in the style of data
 annotations: field types validate (``EmailField``), field arguments
 validate (``required``, ``max_length``, ``ChoiceField``), and the
-``validators=[...]`` list carries the rest. No ``clean_*`` methods
-and no ``clean()`` — none of its current rules need imperative validation.
+``validators=[...]`` list carries the rest. The one exception is
+``coupon_code``: whether a code is redeemable depends on the cart and
+the user, not on the field's own value in isolation, so it gets the
+form's only ``clean_*`` method.
 """
 
 from django import forms
 from django.core.validators import RegexValidator
 
 from accounts.validators import US_STATES, zip_validator
+from coupons.models import Coupon
 
 from .models import Order
 from .validators import validate_card_number, validate_expiry
@@ -90,7 +93,11 @@ class CheckoutForm(forms.Form):
     )
     card_cvv = forms.CharField(label="CVV", max_length=4, validators=[cvv_validator])
 
-    def __init__(self, *args, **kwargs):
+    coupon_code = forms.CharField(label="Coupon code", max_length=32, required=False)
+
+    def __init__(self, *args, cart=None, user=None, **kwargs):
+        self.cart = cart
+        self.user = user
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
@@ -111,6 +118,19 @@ class CheckoutForm(forms.Form):
 
     def card_fields(self):
         return [self[name] for name in self.fields if name.startswith("card_")]
+
+    def clean_coupon_code(self):
+        code = self.cleaned_data["coupon_code"]
+        if not code:
+            return None
+        try:
+            coupon = Coupon.objects.get(code=code)
+        except Coupon.DoesNotExist:
+            raise forms.ValidationError("That code isn't valid.") from None
+        error = coupon.check_redeemable(self.user, self.cart)
+        if error:
+            raise forms.ValidationError(error)
+        return coupon
 
 
 class OrderStatusForm(forms.ModelForm):

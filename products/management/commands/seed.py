@@ -21,6 +21,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from coupons.models import Coupon
 from orders.models import Cart, Order, OrderItem
 from products.models import Category, Product, Tag
 
@@ -496,6 +497,20 @@ SEED_ADDRESSES = [
 
 CARD_LAST4S = ["4242", "4111", "1881", "0005"]
 
+# Demo coupons: (code, discount_type, discount_value, product slugs,
+# days from now the window starts, days from now it ends).
+DEMO_COUPONS = [
+    ("WELCOME10", Coupon.DiscountType.PERCENT, Decimal("10"), [], -30, 335),
+    (
+        "SERAPHINE50",
+        Coupon.DiscountType.PERCENT,
+        Decimal("50"),
+        ["seraphine"],
+        -7,
+        23,
+    ),
+]
+
 
 class Command(BaseCommand):
     help = "Wipe and rebuild the demo world: catalog, tags, and demo accounts."
@@ -508,6 +523,7 @@ class Command(BaseCommand):
         self._create_users()
         self._create_customer_cart()
         self._create_orders()
+        self._create_coupons()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -516,6 +532,7 @@ class Command(BaseCommand):
                 f"{Product.objects.count()} products, "
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
+                f"{Coupon.objects.count()} coupons, "
                 f"and a live cart for 'customer'."
             )
         )
@@ -524,6 +541,7 @@ class Command(BaseCommand):
         """Remove everything the seed owns; the rebuild starts from zero."""
         Order.objects.all().delete()
         Cart.objects.all().delete()
+        Coupon.objects.all().delete()
         Product.objects.all().delete()
         Tag.objects.all().delete()
         Category.objects.all().delete()
@@ -677,3 +695,23 @@ class Command(BaseCommand):
                 unit_price=product.price,
                 quantity=quantity,
             )
+
+    def _create_coupons(self):
+        now = timezone.now()
+        for (
+            code,
+            discount_type,
+            discount_value,
+            slugs,
+            start_days,
+            end_days,
+        ) in DEMO_COUPONS:
+            coupon = Coupon.objects.create(
+                code=code,
+                discount_type=discount_type,
+                discount_value=discount_value,
+                valid_from=now + timedelta(days=start_days),
+                valid_until=now + timedelta(days=end_days),
+            )
+            if slugs:
+                coupon.products.set(Product.objects.filter(slug__in=slugs))

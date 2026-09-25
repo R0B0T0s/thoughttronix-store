@@ -131,6 +131,12 @@ class CheckoutView(LoginRequiredMixin, FormView):
             return redirect("orders:cart")
         return super().dispatch(request, *args, **kwargs)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["cart"] = Cart.for_user(self.request.user)
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
         initial["email"] = self.request.user.email
@@ -163,7 +169,13 @@ class CheckoutView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         cart = Cart.for_user(self.request.user)
-        order = place_order(cart, self.request.user, form.cleaned_data)
+        coupon = form.cleaned_data["coupon_code"]
+        order = place_order(
+            cart,
+            self.request.user,
+            form.cleaned_data,
+            coupon_code=coupon.code if coupon else None,
+        )
         self._save_addresses(form.cleaned_data)
         messages.success(self.request, f"Order {order.number} placed. Thank you!")
         return redirect(reverse("orders:confirmation", kwargs={"pk": order.pk}))

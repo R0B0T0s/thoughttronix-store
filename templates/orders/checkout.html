@@ -51,6 +51,13 @@
         </div>
       </section>
 
+      <section class="card bg-base-100 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">Coupon code</h2>
+          {% include "orders/partials/_field.html" with field=form.coupon_code %}
+        </div>
+      </section>
+
       <button type="submit" class="btn btn-primary w-full">
         Place order — ${{ cart.total|intcomma }}
       </button>

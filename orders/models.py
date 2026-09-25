@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from coupons.models import Coupon
 from products.models import Product
 
 
@@ -103,6 +104,16 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2)
     email = models.EmailField()
 
+    # Coupon redemption, denormalized: coupon is a live link while it
+    # exists (SET_NULL if it's ever removed), but coupon_code and
+    # discount_amount are the permanent record. Retiring or deleting the
+    # coupon later must never change what this order shows or owes.
+    coupon = models.ForeignKey(
+        Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders"
+    )
+    coupon_code = models.CharField(max_length=32, blank=True)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     shipping_name = models.CharField(max_length=100)
     shipping_street = models.CharField(max_length=200)
     shipping_line2 = models.CharField(max_length=200, blank=True)
@@ -132,6 +143,11 @@ class Order(models.Model):
     def number(self):
         """The customer-facing order number, e.g. ``TT-2026-00042``."""
         return f"TT-{self.created_at.year}-{self.pk:05d}"
+
+    @property
+    def subtotal(self):
+        """The pre-discount total — what the items alone add up to."""
+        return self.total + self.discount_amount
 
 
 class OrderItem(models.Model):
