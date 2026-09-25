@@ -1,11 +1,27 @@
 {# One back-office form field: label, widget, and its errors beside it. #}
-{# Checkboxes render inline with their label (a DaisyUI toggle). #}
+{# A lone checkbox renders inline with its label (a DaisyUI toggle). A #}
+{# checkbox-select-multiple (e.g. coupon products) renders as a scrollable #}
+{# list of full-width, single-click rows instead of a native multi-select — #}
+{# ctrl/cmd-click selection and overlapping option text are real usability #}
+{# problems once there's more than a handful of choices. #}
 <div>
   {% if field.widget_type == "checkbox" %}
     <label class="label cursor-pointer justify-start gap-3" for="{{ field.id_for_label }}">
       {{ field }}
       <span>{{ field.label }}</span>
     </label>
+  {% elif field.widget_type == "checkboxselectmultiple" %}
+    <label class="label mb-1">{{ field.label }}</label>
+    <div class="max-h-64 space-y-1 overflow-y-auto rounded-box border border-base-300 p-2">
+      {% for checkbox in field %}
+        <label class="label cursor-pointer justify-start gap-3 rounded px-2 py-1 hover:bg-base-200">
+          {{ checkbox.tag }}
+          <span>{{ checkbox.choice_label }}</span>
+        </label>
+      {% empty %}
+        <p class="px-2 py-1 text-sm opacity-60">No products yet.</p>
+      {% endfor %}
+    </div>
   {% else %}
     <label class="label mb-1" for="{{ field.id_for_label }}">{{ field.label }}</label>
     {{ field }}

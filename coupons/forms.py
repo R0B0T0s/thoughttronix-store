@@ -4,11 +4,20 @@ Widgets get DaisyUI classes in the same shared ``__init__`` loop used by
 ``products.forms.StyledModelForm``. Two rules need imperative validation
 since they span more than one field: a percent discount cannot exceed
 100, and the active window has to end after it starts.
+
+``products`` is declared explicitly as a checkbox list rather than the
+model's default multi-select: a native ``<select multiple>`` forces
+precise ctrl/cmd-click selection and its DaisyUI ``select`` styling
+overlaps option text, both real usability problems once the catalog has
+more than a handful of products. Checkboxes give each product its own
+full-width, single-click hit area instead.
 """
 
 from decimal import Decimal
 
 from django import forms
+
+from products.models import Product
 
 from .models import Coupon
 
@@ -20,7 +29,9 @@ class StyledModelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(widget, forms.CheckboxInput):
+            if isinstance(widget, forms.CheckboxSelectMultiple):
+                widget.attrs["class"] = "checkbox checkbox-primary checkbox-sm"
+            elif isinstance(widget, forms.CheckboxInput):
                 widget.attrs["class"] = "toggle toggle-primary"
             elif isinstance(widget, forms.SelectMultiple):
                 widget.attrs["class"] = "select h-auto w-full"
@@ -31,7 +42,24 @@ class StyledModelForm(forms.ModelForm):
                 widget.attrs["class"] = "input w-full"
 
 
+class ProductChoiceField(forms.ModelMultipleChoiceField):
+    """Labels each checkbox with its category, since two products can
+    share a similar name (e.g. Seraphine, Seraphine Mini)."""
+
+    def label_from_instance(self, product):
+        return f"{product.name} — {product.category.name}"
+
+
 class CouponForm(StyledModelForm):
+    products = ProductChoiceField(
+        queryset=Product.objects.select_related("category").order_by(
+            "category__name", "name"
+        ),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Leave every box unchecked for an order-wide discount, or "
+        "check one or more products to limit the discount to just those lines.",
+    )
     valid_from = forms.DateTimeField(
         widget=forms.DateTimeInput(
             attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
