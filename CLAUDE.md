@@ -17,56 +17,27 @@ A server-rendered Django 6 storefront and back office. The PRD (`prd/core-platfo
 
 - `config/` — the project package (settings, root urls)
 - `accounts/` — custom user model (`accounts.User`, `AbstractUser` + nullable
-  `job_title`). Roles are Django's own vocabulary: customers are plain users,
-  employees are `is_staff`, the admin is `is_superuser`. No role field, no Groups.
+  `job_title`) and the customer address book (`Address`)
 - `products/` — catalog (`Category`, `Product`, `Tag`), its back-office CRUD,
   and the `seed` command
+- `coupons/` — discount codes (`Coupon`) and their back-office CRUD
 - `orders/` — cart, checkout, orders, and back-office order management
 - `dashboard/` — the staff analytics dashboard
-- `PROMPTS.md` — the AI-usage log; append entries, never rewrite history
 - `templates/` — project-level templates (`base.html`); app templates live in
   `templates/<app>/`
-- `assets/` — static sources; `assets/css/source.css` is the Tailwind input,
-  `assets/css/tailwind.css` is compiled output (gitignored, never edit)
+- `assets/` — static sources; `assets/css/source.css` is the Tailwind input
 
-## Architecture convention
+## Always
 
-Logic lives in models and managers; cross-model workflows get a service
-module; views stay thin.
+- Roles are Django's own vocabulary: customers are plain users, employees are
+  `is_staff`, the admin is `is_superuser`. No role field, no Groups.
+- Logic lives in models and managers; cross-model workflows get a service
+  module; views stay thin.
+- `PROMPTS.md` is the AI-usage log — append entries, never rewrite history.
+- `assets/css/tailwind.css` is compiled output (gitignored) — never edit it.
 
-Exactly two deliberate deep modules, docstrings and type hints on every
-public function: `orders/services.py` (`place_order`, with its dormant
-`coupon_code` seam) and `dashboard/queries.py` (the dashboard's
-aggregations).
+## Reference docs — read before working in that area
 
-Idiomatic Django throughout: class-based views, model methods, custom
-managers/querysets, forms own their validation. Settings read from `.env`
-via environs with working defaults — the app must run with no `.env` present.
-
-## Template conventions
-
-- Every page extends the project-level `templates/base.html` (DaisyUI navbar,
-  footer motto). DaisyUI theme: `night`, set in `assets/css/source.css` and
-  `data-theme` on `<html>`.
-- Back-office pages extend `templates/backoffice/base.html` — the staff shell
-  with the tab rail; the active tab comes from the view's `section` context
-  entry.
-- HTMX endpoints render partials from `templates/<app>/partials/_<name>.html` —
-  prefixed with an underscore, never extending `base.html`.
-- Every list view gets a designed empty state, not a blank page.
-- Styling is Tailwind + DaisyUI classes only; no crispy-forms, no JavaScript
-  beyond HTMX.
-
-## URL conventions
-
-- Every URL is named; every app has a namespace (`products:catalog`,
-  `orders:checkout`).
-- Public catalog URLs use slugs (`/products/seraphine-home-hub/`);
-  back-office URLs use pks.
-- `Product` defines `get_absolute_url`.
-
-## Testing
-
-pytest + pytest-django. Shared fixtures live in the project-level
-`conftest.py` — plain fixtures, no factory-boy. Tests never invoke the seed
-command. The suite must be green at every phase boundary.
+- `docs/ARCHITECTURE.md` — models, views, forms, services, URLs, settings
+- `docs/TEMPLATES.md` — read before creating or editing templates
+- `docs/TESTING.md` — writing or changing tests
