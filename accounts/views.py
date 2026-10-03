@@ -57,6 +57,7 @@ class AddressListView(OwnAddressesMixin, ListView):
     def get_queryset(self):
         return super().get_queryset().order_by("label")
 
+
 class AddressCreateView(OwnAddressesMixin, SuccessMessageMixin, CreateView):
     form_class = AddressForm
     template_name = "accounts/address_form.html"
