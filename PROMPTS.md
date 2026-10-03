@@ -28,6 +28,24 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-03 — Product images follow-up: manual verification, cart/order images removed, tracing an upload
+
+Continues the same session as the entry below, which logged prompts 1–3.
+
+### Prompts
+4. how can I manually check in the browser that all implemented features are working?
+5. Everything looks great except in the cart, let's just not show images in the cart or order history.
+6. (Outside Claude Code — Grok, around 2:15 PM, per the user) generate an image of a watermellon robot
+7. where is the image field you created and where is the <form> used to upload a product image.
+8. Tell me 1. The path where the image file is stored on disk. 2.The value stored in the database for that image. 3.The URL the browser requests to display it. for the image called h1kJJ.jpg
+9. Try again.
+10. Ok, last prompt for the day, append a session log for PROMPTS.md. Also add a prompt around 2:15 from Grok with the prompt "generate an image of a watermellon robot". Thank you.
+
+### Summary
+- **Outcome:** Gave a step-by-step browser checklist, including a script that writes one test file per rejection rule into `test-uploads/` and commands that simulate a missing and a broken image file. Per prompt 5, removed product images from the cart and from both order-detail pages (customer and back office) by restoring those templates, `orders/models.py`, and `orders/views.py` to their committed versions. Those files held only the image changes, as `git diff --stat` confirmed first. Deleted the order-line image test and flipped the cart test to assert the cart shows *no* product images. Suite at 256 passed, ruff clean. Pointed to the image field (`products/models.py:82`), the upload form class (`ProductImageForm`, `products/forms.py:61`), and the multipart `<form>` (`templates/products/manage_product_form.html:49`). Traced `h1kJJ.jpg`, the Grok image from prompt 6 downloaded to the user's Downloads folder: it was uploaded to the product with slug `Watermellon_robot` and stored at `media\products\Watermellon_robot.webp`, as DB value `products/Watermellon_robot.webp`, served at `/media/products/Watermellon_robot.webp`. A pixel comparison matched the two (784×1168, mean difference 1.72/255, from WebP compression).
+- **Deviations:** Prompt 5 reversed part of the earlier grill answer (images in the cart and order history), which had itself gone beyond my recommendation of back-office list only. The entry below still describes those images as shipped; it is left as written, per this file's rules, and this entry records the reversal. Pointed out that the `Watermellon_robot` slug breaks the lowercase-hyphen convention the other slugs follow; left it unchanged.
+- **Sideways:** My first answer to prompt 8 was wrong in substance. I searched only for files and database values named `h1kJJ`, found none, and answered with a hypothetical ("Pulse Halo") instead of looking for a recent upload under a different name. Prompt 9 ("Try again") caught it; a wider search found the file in Downloads and the newly uploaded product image, and a pixel comparison confirmed the match. The VS Code Pylance warnings (`pytest`/`PIL` "could not be resolved") came from the editor not using the project's `.venv` interpreter, not from the code. The Downloads copy of `h1kJJ.jpg` has a modified time of 1:41 PM, earlier than the approximate 2:15 PM given for the Grok prompt; the time is recorded as the user stated it.
+
 ## 2026-10-03 — Product photos from the product-images folder, plus validated back-office uploads
 
 ### Prompts
