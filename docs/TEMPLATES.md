@@ -11,3 +11,5 @@
 - Every list view gets a designed empty state, not a blank page.
 - Styling is Tailwind + DaisyUI classes only; no crispy-forms, no JavaScript
   beyond HTMX.
+
+-Styling utilizes Times New Roman font.
