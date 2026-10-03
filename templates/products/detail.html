@@ -14,7 +14,7 @@
 
   <div class="grid grid-cols-1 gap-8 md:grid-cols-2">
     <figure class="overflow-hidden rounded-box bg-base-100 shadow-md">
-      <img src="{% static product.category.placeholder_image %}" alt="{{ product.name }}" class="w-full" />
+      {% include "products/partials/_image.html" with item=product alt=product.name classes="w-full" %}
     </figure>
 
     <div>

@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from django import forms
 
+from .images import validate_product_image
 from .models import Category, Product, Tag
 
 
@@ -55,6 +56,38 @@ class ProductForm(StyledModelForm):
             "is_available",
             "is_featured",
         ]
+
+
+class ProductImageForm(forms.Form):
+    """The product image panel's upload — kept apart from ``ProductForm``.
+
+    Holding the file chooser alone means the only errors this form can
+    raise are about the image itself, so a valid upload is never dropped
+    because some other field failed. A plain ``FileField`` (not
+    ``ImageField``) lets ``validate_product_image`` give every reason in
+    plain English instead of Django's generic "Upload a valid image".
+    """
+
+    image = forms.FileField(
+        label="Upload an image",
+        help_text="JPG, PNG, or WebP · up to 10 MB · at least 400 pixels on "
+        "the shortest side. Large images are resized automatically.",
+        error_messages={
+            "required": "Choose an image file to upload.",
+            "empty": "That file is empty. Please choose a different image.",
+        },
+        widget=forms.FileInput(
+            attrs={
+                "class": "file-input w-full",
+                "accept": "image/jpeg,image/png,image/webp",
+            }
+        ),
+    )
+
+    def clean_image(self):
+        image = self.cleaned_data["image"]
+        validate_product_image(image)
+        return image
 
 
 class CategoryForm(StyledModelForm):

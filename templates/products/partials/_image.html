@@ -1,0 +1,12 @@
+{% comment %}
+  A product (or order line) image with its placeholder fallback.
+  Expects ``item`` (anything with display_image_url and placeholder_url),
+  ``alt``, and optional ``classes``. The server already swaps in the
+  placeholder when the file is missing; onerror covers a file the
+  browser still can't load (damaged after it was saved).
+{% endcomment %}
+<img src="{{ item.display_image_url }}"
+     alt="{{ alt }}"
+     class="{{ classes }}"
+     loading="lazy"
+     onerror="this.onerror=null;this.src='{{ item.placeholder_url|escapejs }}';" />

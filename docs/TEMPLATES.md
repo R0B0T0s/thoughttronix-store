@@ -10,6 +10,8 @@
   prefixed with an underscore, never extending `base.html`.
 - Every list view gets a designed empty state, not a blank page.
 - Styling is Tailwind + DaisyUI classes only; no crispy-forms, no JavaScript
-  beyond HTMX.
+  beyond HTMX. One sanctioned exception: product images render through
+  `products/partials/_image.html`, whose `onerror` swaps in the placeholder
+  if the browser can't load the file.
 
 -Styling utilizes Times New Roman font.

@@ -1,19 +1,23 @@
+from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Count
-from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
+    FormView,
     ListView,
     TemplateView,
     UpdateView,
 )
+from django.views.generic.detail import SingleObjectMixin
 
 from accounts.mixins import StaffRequiredMixin
 
-from .forms import CategoryForm, ProductForm, TagForm
+from .forms import CategoryForm, ProductForm, ProductImageForm, TagForm
 from .models import Category, Product, Tag
 
 
@@ -90,12 +94,16 @@ class ManageProductListView(StaffRequiredMixin, ListView):
 
 
 class ManageProductCreateView(StaffRequiredMixin, SuccessMessageMixin, CreateView):
+    """New products land on their edit page, where the image panel lives."""
+
     model = Product
     form_class = ProductForm
     template_name = "products/manage_product_form.html"
-    success_url = reverse_lazy("products:manage_products")
-    success_message = "“%(name)s” created."
+    success_message = "“%(name)s” created. You can add its image below."
     extra_context = {"section": "products"}
+
+    def get_success_url(self):
+        return reverse("products:manage_product_update", kwargs={"pk": self.object.pk})
 
 
 class ManageProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateView):
@@ -105,6 +113,55 @@ class ManageProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateVie
     success_url = reverse_lazy("products:manage_products")
     success_message = "“%(name)s” saved."
     extra_context = {"section": "products"}
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["image_form"] = ProductImageForm()
+        return context
+
+
+class ManageProductImageView(StaffRequiredMixin, SingleObjectMixin, FormView):
+    """The image panel's upload (POST only).
+
+    A rejected file re-renders the edit page with the reason under the
+    file chooser; nothing is saved. An accepted file replaces the old one.
+    """
+
+    model = Product
+    form_class = ProductImageForm
+    template_name = "products/manage_product_form.html"
+    http_method_names = ["post"]
+    extra_context = {"section": "products"}
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        self.object.replace_image(form.cleaned_data["image"])
+        messages.success(self.request, f"Image saved for “{self.object.name}”.")
+        return redirect("products:manage_product_update", pk=self.object.pk)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["image_form"] = context.pop("form")
+        context["form"] = ProductForm(instance=self.object)
+        return context
+
+
+class ManageProductImageRemoveView(StaffRequiredMixin, SingleObjectMixin, View):
+    """The image panel's Remove button: back to the category placeholder."""
+
+    model = Product
+    http_method_names = ["post"]
+
+    def post(self, request, *args, **kwargs):
+        product = self.get_object()
+        product.remove_image()
+        messages.success(
+            request, f"Image removed. “{product.name}” now shows its placeholder."
+        )
+        return redirect("products:manage_product_update", pk=product.pk)
 
 
 class ManageProductDeleteView(StaffRequiredMixin, SuccessMessageMixin, DeleteView):

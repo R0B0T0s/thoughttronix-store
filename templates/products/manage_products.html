@@ -18,6 +18,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th>Image</th>
             <th>Product</th>
             <th>Category</th>
             <th>Price</th>
@@ -28,6 +29,14 @@
         <tbody>
           {% for product in products %}
             <tr>
+              <td>
+                <a href="{% url 'products:manage_product_update' product.pk %}" class="block w-16">
+                  {% include "products/partials/_image.html" with item=product alt=product.name classes="h-12 w-16 rounded object-cover" %}
+                </a>
+                {% if not product.has_image %}
+                  <span class="badge badge-ghost badge-xs mt-1">No photo</span>
+                {% endif %}
+              </td>
               <td>
                 <a href="{% url 'products:manage_product_update' product.pk %}"
                    class="link-hover font-semibold">{{ product.name }}</a>

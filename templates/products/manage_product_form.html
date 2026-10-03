@@ -15,6 +15,9 @@
         {% for field in form %}
           {% include "products/partials/_field.html" %}
         {% endfor %}
+        {% if not form.instance.pk %}
+          <p class="text-sm opacity-60">You can add a product image after saving.</p>
+        {% endif %}
         <div class="mt-2 flex items-center justify-end gap-2">
           <a href="{% url 'products:manage_products' %}" class="btn btn-ghost">Cancel</a>
           <button type="submit" class="btn btn-primary">Save product</button>
@@ -22,4 +25,47 @@
       </form>
     </div>
   </div>
+
+  {% if form.instance.pk %}
+    {% with product=form.instance %}
+      {# The image panel: its own form, so only image errors can stop it. #}
+      <div id="image" class="card mx-auto mt-6 max-w-2xl bg-base-100 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">Product image</h2>
+          <div class="grid gap-6 sm:grid-cols-[12rem_1fr]">
+            <div>
+              {% include "products/partials/_image.html" with item=product alt=product.name classes="w-full rounded-box" %}
+              <p class="mt-2 text-xs opacity-60">
+                {% if product.has_image %}
+                  Showing the uploaded image.
+                {% elif product.image %}
+                  The saved image file is missing, so the category placeholder is showing.
+                {% else %}
+                  No image yet — showing the category placeholder.
+                {% endif %}
+              </p>
+            </div>
+            <div class="space-y-4">
+              <form method="post"
+                    action="{% url 'products:manage_product_image' product.pk %}"
+                    enctype="multipart/form-data"
+                    class="space-y-4">
+                {% csrf_token %}
+                {% include "products/partials/_field.html" with field=image_form.image %}
+                <button type="submit" class="btn btn-primary btn-sm">
+                  {% if product.image %}Replace image{% else %}Upload image{% endif %}
+                </button>
+              </form>
+              {% if product.image %}
+                <form method="post" action="{% url 'products:manage_product_image_remove' product.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-ghost btn-sm text-error">Remove image</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endwith %}
+  {% endif %}
 {% endblock %}

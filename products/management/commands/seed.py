@@ -14,8 +14,12 @@ Demo logins (documented in the README):
 import random
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -23,6 +27,7 @@ from django.utils.text import slugify
 
 from coupons.models import Coupon
 from orders.models import Cart, Order, OrderItem
+from products.images import validate_product_image
 from products.models import Category, Product, Tag
 
 TAGS = [
@@ -425,6 +430,24 @@ CATALOG = {
     ],
 }
 
+# Product photos: product slug -> file in products/seed_images/. Exact
+# matches only — every other product shows its category placeholder.
+SEED_IMAGE_DIR = Path(__file__).resolve().parents[2] / "seed_images"
+SEED_IMAGES = {
+    "seraphine": "seraphine.png",
+    "hush": "hush.png",
+    "mindsync": "mindsync.png",
+    "mindsync-duo": "mindsync-duo.png",
+    "recallpro": "recallpro.png",
+    "moodset": "moodset.png",
+    "dreamweaver": "dreamweaver.png",
+    "veil": "veil.png",
+    "calm-collar": "calm-collar.png",
+    "syncrest": "syncrest.png",
+    "soulsear-mark-i": "soulsear-mark-i.png",
+    "crowdcalm-array": "crowdcalm-array.png",
+}
+
 DEMO_USERS = [
     # (username, password, email, first, last, is_staff, is_superuser, job_title)
     ("admin", "admin123", "admin@example.com", "Ada", "Admin", True, True, None),
@@ -518,8 +541,10 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         self._wipe()
+        self._clear_product_images()
         tags = self._create_tags()
         self._create_catalog(tags)
+        images_attached = self._attach_images()
         self._create_users()
         self._create_customer_cart()
         self._create_orders()
@@ -529,7 +554,8 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Seeded {Category.objects.count()} categories, "
                 f"{Tag.objects.count()} tags, "
-                f"{Product.objects.count()} products, "
+                f"{Product.objects.count()} products "
+                f"({images_attached} with photos), "
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
@@ -572,6 +598,45 @@ class Command(BaseCommand):
                     category=category,
                 )
                 product.tags.set(tags[tag_name] for tag_name in tag_names)
+
+    def _clear_product_images(self):
+        """Empty media/products/ so re-seeding never piles up stale files."""
+        if not default_storage.exists("products"):
+            return
+        _, filenames = default_storage.listdir("products")
+        for filename in filenames:
+            default_storage.delete(f"products/{filename}")
+
+    def _attach_images(self):
+        """Give each SEED_IMAGES product its photo, through the upload rules.
+
+        A missing or unusable file is a warning, not a failure: that
+        product simply keeps its category placeholder.
+        """
+        attached = 0
+        for slug, filename in SEED_IMAGES.items():
+            path = SEED_IMAGE_DIR / filename
+            if not path.is_file():
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"No image file {filename}; {slug} keeps its placeholder."
+                    )
+                )
+                continue
+            with path.open("rb") as handle:
+                image = File(handle, name=filename)
+                try:
+                    validate_product_image(image)
+                except ValidationError as error:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Skipped {filename} for {slug}: {' '.join(error.messages)}"
+                        )
+                    )
+                    continue
+                Product.objects.get(slug=slug).replace_image(image)
+                attached += 1
+        return attached
 
     def _create_users(self):
         User = get_user_model()
