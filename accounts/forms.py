@@ -6,19 +6,29 @@ from .validators import US_STATES, zip_validator
 
 
 class SignupForm(UserCreationForm):
-    """Django's stock signup fields — username plus password and confirmation.
+    """Django's stock signup fields plus a required, unique email.
 
-    No email: signing up asks for the minimum. The widgets carry DaisyUI
-    classes because plain Django forms own their own styling here.
+    The email is how the store reaches a customer who loses access, so
+    each address belongs to exactly one account, whatever its
+    capitalization. The widgets carry DaisyUI classes because plain
+    Django forms own their own styling here.
     """
 
     class Meta(UserCreationForm.Meta):
         model = User
+        fields = ("username", "email")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["email"].required = True
         for field in self.fields.values():
             field.widget.attrs["class"] = "input w-full"
+
+    def clean_email(self):
+        email = User.objects.normalize_email(self.cleaned_data["email"])
+        if User.objects.email_in_use(email):
+            raise forms.ValidationError("An account with that email already exists.")
+        return email
 
 
 class SignInForm(AuthenticationForm):

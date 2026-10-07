@@ -28,6 +28,20 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-07 — Account security: grill interview and PRD (no code yet)
+
+### Prompts
+1. usage
+2. `/grill-me` — the website needs updated security features. Customers should provide a email whenever they create an account, they should be able to change their password, and  reset their password through email. Also, if you have any security recomendations, please give them.
+3. (Interactive `/grill-me` interview: twelve design questions answered one at a time, covering email uniqueness (unique, case-insensitive), what the login box accepts (username or email), email verification (none), existing blank-email accounts (uniqueness ignores blanks), the Account page (change email + change password), alert emails (password change, and email change to the old address), reset-link lifetime (1 hour), email delivery (console default, SMTP via `.env`), login throttling (django-axes), production hardening (strict settings when DEBUG is off), minimum password length (kept at 8), and reset-request throttling (per-email 5-minute cooldown).)
+4. `/to-prd`
+5. Append a session log to PROMPTS.md at the repo root, under today's date, newest entry at the top. Record every prompt I gave you this session, in order, including any corrections. End the entry with a short summary: the outcome, any places where I deviated from a recommended answer or asked follow-up questions, and anything that went sideways.
+
+### Summary
+- **Outcome:** Before the interview, read the accounts app, settings, and seed command. That answered several questions from the code instead of asking: signup has no email field on purpose, `AbstractUser.email` is optional and non-unique, the seed already gives every demo user an email, email uses the console backend, and none of the password change/reset views exist yet. The interview produced a 12-point plan, and `/to-prd` turned it into `prd/account-security.md`. It has 27 user stories, the design decisions, what's out of scope, and a list of what the tests should cover. It notes that it overrides the core-platform PRD's "no email at signup" decision. No application code was changed, nothing was committed, and the PRD is untracked.
+- **Deviations:** Question 11 (minimum password length) overrode my recommendation of 12 characters; it stays at Django's default of 8. Every other question took the recommended option. No follow-up questions were asked during the interview.
+- **Sideways:** Prompt 1 ("usage") was ambiguous. I answered both ways: pointing to the built-in `/usage` command, and listing the project's commands from CLAUDE.md. The PRD also includes two items the user never voted on, which I had listed at the end of the interview as additions I'd make without asking: a configurable admin URL instead of `/admin/`, and the list of tests to write. I flagged both in my reply so they can be cut. The untracked `.claude/skills/to-prd/` folder existed before this session and was left alone.
+
 ## 2026-10-03 — Product images follow-up: manual verification, cart/order images removed, tracing an upload
 
 Continues the same session as the entry below, which logged prompts 1–3.

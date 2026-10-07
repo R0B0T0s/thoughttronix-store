@@ -1,6 +1,22 @@
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
+from django.db.models.functions import Lower
+
+
+class StoreUserManager(UserManager):
+    def email_in_use(self, email, exclude=None):
+        """True if another account already has ``email``, in any capitalization.
+
+        Blank emails never count as in use. Pass ``exclude`` (a user) to
+        ignore that account — e.g. the one changing its own email.
+        """
+        if not email:
+            return False
+        matches = self.filter(email__iexact=email)
+        if exclude is not None:
+            matches = matches.exclude(pk=exclude.pk)
+        return matches.exists()
 
 
 class User(AbstractUser):
@@ -10,8 +26,24 @@ class User(AbstractUser):
     plain users, employees are ``is_staff``, the admin is ``is_superuser``.
     """
 
+    objects = StoreUserManager()
+
     # Nullable per the PRD: an absent job title is unknown, not empty.
     job_title = models.CharField(max_length=150, null=True, blank=True)  # noqa: DJ001
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            # One account per email, whatever the capitalization. Blank
+            # emails are exempt so accounts that predate the requirement
+            # stay valid. Forms check this first with a friendlier
+            # message; the constraint is the backstop.
+            models.UniqueConstraint(
+                Lower("email"),
+                condition=~models.Q(email=""),
+                name="unique_user_email_ci",
+                violation_error_message="An account with that email already exists.",
+            ),
+        ]
 
 
 class Address(models.Model):

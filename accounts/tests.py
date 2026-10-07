@@ -1,6 +1,8 @@
 from http import HTTPStatus
 
+import pytest
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 
 # --- Signup -----------------------------------------------------------------
@@ -12,16 +14,18 @@ def test_signup_page_returns_200(client, db):
     assert response.status_code == HTTPStatus.OK
 
 
+def signup_data(**overrides):
+    return {
+        "username": "fresh-thinker",
+        "email": "fresh@example.com",
+        "password1": "neural-implant-9000",
+        "password2": "neural-implant-9000",
+        **overrides,
+    }
+
+
 def test_signup_creates_plain_customer(client, db):
-    response = client.post(
-        reverse("accounts:signup"),
-        {
-            "username": "fresh-thinker",
-            "password1": "neural-implant-9000",
-            "password2": "neural-implant-9000",
-        },
-        follow=True,
-    )
+    response = client.post(reverse("accounts:signup"), signup_data(), follow=True)
 
     user = get_user_model().objects.get(username="fresh-thinker")
     assert not user.is_staff
@@ -36,17 +40,87 @@ def test_signup_creates_plain_customer(client, db):
 
 def test_signup_password_mismatch_shows_field_error(client, db):
     response = client.post(
-        reverse("accounts:signup"),
-        {
-            "username": "fresh-thinker",
-            "password1": "neural-implant-9000",
-            "password2": "neural-implant-9001",
-        },
+        reverse("accounts:signup"), signup_data(password2="neural-implant-9001")
     )
 
     assert response.status_code == HTTPStatus.OK
     assert response.context["form"].errors["password2"]
     assert not get_user_model().objects.filter(username="fresh-thinker").exists()
+
+
+def test_signup_page_shows_email_field(client, db):
+    response = client.get(reverse("accounts:signup"))
+
+    assert 'name="email"' in response.content.decode()
+    assert response.context["form"].fields["email"].required
+
+
+def test_signup_without_email_is_rejected(client, db):
+    response = client.post(reverse("accounts:signup"), signup_data(email=""))
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["form"].errors["email"]
+    assert not get_user_model().objects.filter(username="fresh-thinker").exists()
+
+
+@pytest.mark.parametrize("taken", ["fresh@example.com", "Fresh@Example.COM"])
+def test_signup_rejects_email_already_in_use(client, db, taken):
+    get_user_model().objects.create_user(
+        username="ada", email="fresh@example.com", password="x"
+    )
+
+    response = client.post(reverse("accounts:signup"), signup_data(email=taken))
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["form"].errors["email"] == [
+        "An account with that email already exists."
+    ]
+    assert not get_user_model().objects.filter(username="fresh-thinker").exists()
+
+
+def test_signup_stores_normalized_email(client, db):
+    client.post(reverse("accounts:signup"), signup_data(email="Fresh@EXAMPLE.com"))
+
+    user = get_user_model().objects.get(username="fresh-thinker")
+    assert user.email == "Fresh@example.com"
+
+
+def test_signup_rejects_password_too_similar_to_email(client, db):
+    response = client.post(
+        reverse("accounts:signup"),
+        signup_data(
+            email="quantumthinker@example.com",
+            password1="quantumthinker",
+            password2="quantumthinker",
+        ),
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert "too similar to the email address" in str(
+        response.context["form"].errors["password2"]
+    )
+    assert not get_user_model().objects.filter(username="fresh-thinker").exists()
+
+
+# --- The email constraint ----------------------------------------------------
+
+
+def test_users_with_blank_emails_can_coexist(db):
+    User = get_user_model()
+    User.objects.create_user(username="legacy-one", password="x")
+    User.objects.create_user(username="legacy-two", password="x")
+
+    assert User.objects.filter(email="").count() == 2
+
+
+def test_database_rejects_case_insensitive_duplicate_email(db):
+    User = get_user_model()
+    User.objects.create_user(username="ada", email="ada@example.com", password="x")
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        User.objects.create_user(
+            username="ada-two", email="ADA@example.com", password="x"
+        )
 
 
 # --- Login and logout --------------------------------------------------------
