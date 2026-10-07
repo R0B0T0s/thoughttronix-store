@@ -30,5 +30,17 @@
         {% endif %}
       </div>
     </div>
+
+    <div class="card bg-base-100 shadow-md">
+      <div class="card-body">
+        <h2 class="card-title">Password</h2>
+        <p class="text-sm opacity-70">
+          Changing your password signs out your other devices.
+        </p>
+        <div class="card-actions justify-end">
+          <a href="{% url 'accounts:password_change' %}" class="btn btn-primary btn-sm">Change password</a>
+        </div>
+      </div>
+    </div>
   </div>
 {% endblock %}

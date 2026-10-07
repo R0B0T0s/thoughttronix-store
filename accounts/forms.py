@@ -1,5 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    UserCreationForm,
+)
 
 from .models import Address, User
 from .validators import US_STATES, zip_validator
@@ -92,6 +96,18 @@ class EmailChangeForm(forms.Form):
         self.user.email = self.cleaned_data["email"]
         self.user.save(update_fields=["email"])
         return self.user
+
+
+class StyledPasswordChangeForm(PasswordChangeForm):
+    """Django's password change form — current password plus the new one
+    twice, run through the password validators — dressed in DaisyUI.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["old_password"].label = "Current password"
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input w-full"
 
 
 class AddressForm(forms.ModelForm):

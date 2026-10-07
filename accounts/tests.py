@@ -3,6 +3,7 @@ from http import HTTPStatus
 import pytest
 from django.contrib.auth import authenticate, get_user_model
 from django.db import IntegrityError, transaction
+from django.test import Client
 from django.urls import reverse
 
 # --- Signup -----------------------------------------------------------------
@@ -242,7 +243,9 @@ def test_logout_signs_out_with_message(client, customer):
 # --- The Account page and change email ----------------------------------------
 
 
-@pytest.mark.parametrize("name", ["accounts:account", "accounts:email_change"])
+@pytest.mark.parametrize(
+    "name", ["accounts:account", "accounts:email_change", "accounts:password_change"]
+)
 def test_account_pages_redirect_anonymous_to_login(client, db, name):
     url = reverse(name)
 
@@ -343,6 +346,114 @@ def test_adding_email_to_blank_account_sends_no_alert(client, customer, mailoutb
     assert response.redirect_chain[-1][0] == reverse("accounts:account")
     customer.refresh_from_db()
     assert customer.email == "casey@example.com"
+    assert mailoutbox == []
+
+
+# --- Change password -----------------------------------------------------------
+
+
+def change_password(client, old, new1, new2=None):
+    return client.post(
+        reverse("accounts:password_change"),
+        {
+            "old_password": old,
+            "new_password1": new1,
+            "new_password2": new1 if new2 is None else new2,
+        },
+        follow=True,
+    )
+
+
+def test_account_page_links_to_password_change(client, ada):
+    client.force_login(ada)
+
+    page = client.get(reverse("accounts:account")).content.decode()
+
+    assert reverse("accounts:password_change") in page
+
+
+def test_password_change_page_renders_in_site_style(client, ada):
+    client.force_login(ada)
+
+    response = client.get(reverse("accounts:password_change"))
+
+    assert response.status_code == HTTPStatus.OK
+    assert "accounts/password_change.html" in [t.name for t in response.templates]
+    assert "base.html" in [t.name for t in response.templates]
+    assert 'class="input w-full"' in response.content.decode()
+
+
+@pytest.mark.parametrize(
+    ("old", "new1", "new2", "field"),
+    [
+        ("difference-engine", "lovelace-notes-g", None, "old_password"),
+        (
+            "analytical-engine-1843",
+            "lovelace-notes-g",
+            "lovelace-notes-h",
+            "new_password2",
+        ),
+        ("analytical-engine-1843", "short", None, "new_password2"),
+        ("analytical-engine-1843", "12345678901", None, "new_password2"),
+        ("analytical-engine-1843", "password", None, "new_password2"),
+        ("analytical-engine-1843", "ada@example", None, "new_password2"),
+    ],
+    ids=["wrong-current", "mismatch", "too-short", "numeric", "common", "similar"],
+)
+def test_password_change_rejections(client, ada, mailoutbox, old, new1, new2, field):
+    client.force_login(ada)
+
+    response = change_password(client, old, new1, new2)
+
+    assert response.context["form"].errors[field]
+    ada.refresh_from_db()
+    assert ada.check_password("analytical-engine-1843")
+    assert mailoutbox == []
+
+
+def test_password_change_swaps_the_password(client, ada):
+    client.force_login(ada)
+
+    response = change_password(client, "analytical-engine-1843", "lovelace-notes-g")
+
+    assert response.redirect_chain[-1][0] == reverse("accounts:account")
+    assert "Your password was changed." in response.content.decode()
+    client.logout()
+    assert sign_in(client, "ada", "analytical-engine-1843").status_code == HTTPStatus.OK
+    assert sign_in(client, "ada", "lovelace-notes-g").status_code == HTTPStatus.FOUND
+
+
+def test_password_change_keeps_this_session_and_ends_others(client, ada):
+    other = Client()
+    other.force_login(ada)
+    client.force_login(ada)
+
+    change_password(client, "analytical-engine-1843", "lovelace-notes-g")
+
+    here = client.get(reverse("accounts:account"))
+    there = other.get(reverse("accounts:account"))
+    assert here.status_code == HTTPStatus.OK
+    assert there.status_code == HTTPStatus.FOUND
+    assert there.url.startswith(reverse("accounts:login"))
+
+
+def test_password_change_alerts_the_account_email(client, ada, mailoutbox):
+    client.force_login(ada)
+
+    change_password(client, "analytical-engine-1843", "lovelace-notes-g")
+
+    assert len(mailoutbox) == 1
+    alert = mailoutbox[0]
+    assert alert.to == ["Ada@example.com"]
+    assert "password was changed" in alert.subject
+
+
+def test_password_change_without_email_sends_no_alert(client, customer, mailoutbox):
+    client.force_login(customer)
+
+    response = change_password(client, "customer123", "lovelace-notes-g")
+
+    assert response.redirect_chain[-1][0] == reverse("accounts:account")
     assert mailoutbox == []
 
 

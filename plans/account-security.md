@@ -143,11 +143,11 @@ the existing four validators.
 
 ### Acceptance criteria
 
-- [ ] The page requires login and renders in the site's style.
-- [ ] A wrong current password, mismatched new passwords, or a validator failure each rejects the change.
-- [ ] A successful change lets the user sign in with the new password and not the old one.
-- [ ] The session that made the change stays signed in, and a second session for the same user is signed out.
-- [ ] Exactly one alert email goes to the account's email, and none goes out when the email is blank.
+- [x] The page requires login and renders in the site's style.
+- [x] A wrong current password, mismatched new passwords, or a validator failure each rejects the change.
+- [x] A successful change lets the user sign in with the new password and not the old one.
+- [x] The session that made the change stays signed in, and a second session for the same user is signed out.
+- [x] Exactly one alert email goes to the account's email, and none goes out when the email is blank.
 
 ---
 

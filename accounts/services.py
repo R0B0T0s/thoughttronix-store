@@ -18,6 +18,16 @@ def _send_alert(to: str, subject: str, template: str, context: dict) -> None:
     send_mail(subject, body, from_email=None, recipient_list=[to])
 
 
+def notify_password_changed(user: AbstractBaseUser) -> None:
+    """Tell the account's email that its password was changed."""
+    _send_alert(
+        user.email,
+        "Your ThoughtTronix password was changed",
+        "accounts/emails/password_changed.txt",
+        {"user": user},
+    )
+
+
 def notify_email_changed(user: AbstractBaseUser, old_email: str) -> None:
     """Tell the *old* address that the account's email was changed."""
     _send_alert(

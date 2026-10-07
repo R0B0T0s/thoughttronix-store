@@ -11,7 +11,7 @@
     {{ field }}
   {% endif %}
   {% if field.help_text %}
-    <p class="mt-1 text-xs opacity-60">{{ field.help_text }}</p>
+    <div class="mt-1 text-xs opacity-60">{{ field.help_text }}</div>
   {% endif %}
   {% for error in field.errors %}
     <p class="mt-1 text-sm text-error">{{ error }}</p>
