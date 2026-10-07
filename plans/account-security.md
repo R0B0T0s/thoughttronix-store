@@ -214,11 +214,11 @@ axes for the ordinary suite, and the lockout tests re-enable it.
 
 ### Acceptance criteria
 
-- [ ] After five wrong passwords for one username from one IP, the next sign-in is refused, even with the correct password.
-- [ ] A different username from the same IP is not locked out.
-- [ ] Clearing the lockout (as the admin action would) lets the user sign in again.
-- [ ] Lockout records appear in the Django admin for staff.
-- [ ] The rest of the suite (signup, sign-in, change password, reset) is unaffected and green.
+- [x] After five wrong passwords for one username from one IP, the next sign-in is refused, even with the correct password.
+- [x] A different username from the same IP is not locked out.
+- [x] Clearing the lockout (as the admin action would) lets the user sign in again.
+- [x] Lockout records appear in the Django admin for staff.
+- [x] The rest of the suite (signup, sign-in, change password, reset) is unaffected and green.
 
 ---
 

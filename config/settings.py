@@ -7,6 +7,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 from environs import env
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     # Third-party
+    "axes",
     "django_tailwind_cli",
     # Local
     "accounts",
@@ -56,6 +58,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Last, so it can answer a locked-out sign-in with the lockout page.
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -95,8 +99,12 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.User"
 
-# Sign in with a username or an email.
-AUTHENTICATION_BACKENDS = ["accounts.backends.UsernameOrEmailBackend"]
+# Axes refuses locked-out sign-ins first; then sign in with a username or
+# an email.
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "accounts.backends.UsernameOrEmailBackend",
+]
 
 LOGIN_URL = "accounts:login"
 
@@ -106,6 +114,22 @@ LOGOUT_REDIRECT_URL = "products:catalog"
 
 # Password reset links expire after one hour (and are single-use by design).
 PASSWORD_RESET_TIMEOUT = 60 * 60
+
+# Login throttling (django-axes). Five wrong passwords for one account from
+# one IP lock that pair out for the cool-off; a successful sign-in resets
+# the count. Staff view and clear lockouts in the Django admin.
+AXES_FAILURE_LIMIT = 5
+
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+
+# Username and email spellings of one account share a failure count.
+AXES_USERNAME_CALLABLE = "accounts.backends.lockout_username"
+
+AXES_RESET_ON_SUCCESS = True
+
+AXES_LOCKOUT_CALLABLE = "accounts.views.locked_out"
 
 AUTH_PASSWORD_VALIDATORS = [
     {

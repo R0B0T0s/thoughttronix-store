@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Too many sign-in attempts — The ThoughtTronix Store{% endblock %}
+
+{% block content %}
+  <div class="card mx-auto max-w-md bg-base-100 shadow-md">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Too many sign-in attempts</h1>
+      <div class="alert alert-warning" role="alert">
+        <span>
+          For your security, sign-in for this account is paused after too many
+          wrong passwords. Try again in {{ cooloff_minutes }} minutes.
+        </span>
+      </div>
+      <p class="text-sm opacity-70">
+        Can't remember your password? You can
+        <a href="{% url 'accounts:password_reset' %}" class="link link-primary">reset it by email</a>
+        while you wait. Still stuck after that? Our staff can lift the pause for you.
+      </p>
+      <div class="card-actions mt-2 justify-end">
+        <a href="{% url 'products:catalog' %}" class="btn btn-primary">Back to the store</a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

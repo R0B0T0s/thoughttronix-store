@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import pytest
+from axes.models import AccessAttempt
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import IntegrityError, transaction
@@ -660,6 +661,103 @@ def test_cache_starts_empty_so_cooldowns_never_leak(client, ada, mailoutbox):
     request_reset(client, "ada@example.com")
 
     assert len(mailoutbox) == 1
+
+
+# --- Login lockout (django-axes) -----------------------------------------------
+
+
+@pytest.fixture
+def axes_on(settings):
+    """Undo the autouse ``axes_disabled`` fixture for the lockout tests."""
+    settings.AXES_ENABLED = True
+
+
+def fail_sign_ins(client, identifiers):
+    for identifier in identifiers:
+        response = sign_in(client, identifier, "wrong-password")
+    return response
+
+
+def test_five_wrong_passwords_lock_out_even_the_right_one(client, ada, axes_on):
+    fail_sign_ins(client, ["ada"] * 5)
+
+    response = sign_in(client, "ada", "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
+    assert "accounts/locked_out.html" in [t.name for t in response.templates]
+    assert "Try again in 15 minutes" in response.content.decode()
+    assert "_auth_user_id" not in client.session
+
+
+def test_four_wrong_passwords_do_not_lock_out(client, ada, axes_on):
+    fail_sign_ins(client, ["ada"] * 4)
+
+    response = sign_in(client, "ada", "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.FOUND
+
+
+def test_username_and_email_spellings_share_one_failure_count(client, ada, axes_on):
+    fail_sign_ins(
+        client,
+        ["ada", "ada@example.com", "ADA@EXAMPLE.COM", "Ada@Example.com", "ada"],
+    )
+
+    response = sign_in(client, "ada@example.com", "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
+
+
+def test_lockout_spares_other_usernames_from_the_same_ip(
+    client, ada, customer, axes_on
+):
+    fail_sign_ins(client, ["ada"] * 5)
+
+    response = sign_in(client, "customer", "customer123")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert int(client.session["_auth_user_id"]) == customer.pk
+
+
+def test_lockout_spares_the_same_username_from_another_ip(client, ada, axes_on):
+    fail_sign_ins(client, ["ada"] * 5)
+
+    elsewhere = Client(REMOTE_ADDR="203.0.113.7")
+    response = sign_in(elsewhere, "ada", "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.FOUND
+
+
+def test_staff_see_lockouts_in_the_admin(client, ada, staff_user, axes_on):
+    fail_sign_ins(client, ["ada"] * 5)
+    client.force_login(staff_user)
+
+    response = client.get(reverse("admin:axes_accessattempt_changelist"))
+
+    assert response.status_code == HTTPStatus.OK
+    assert "Locked Out" in response.content.decode()
+    assert list(response.context["cl"].result_list.values_list("username")) == [
+        ("ada",)
+    ]
+
+
+def test_staff_clearing_a_lockout_lets_the_user_sign_in(
+    client, ada, staff_user, axes_on
+):
+    fail_sign_ins(client, ["ada"] * 5)
+    attempt = AccessAttempt.objects.get(username="ada")
+    staff = Client()
+    staff.force_login(staff_user)
+
+    staff.post(
+        reverse("admin:axes_accessattempt_changelist"),
+        {"action": "delete_selected", "_selected_action": [attempt.pk], "post": "yes"},
+    )
+
+    assert not AccessAttempt.objects.exists()
+    response = sign_in(client, "ada", "analytical-engine-1843")
+    assert response.status_code == HTTPStatus.FOUND
+    assert int(client.session["_auth_user_id"]) == ada.pk
 
 
 # --- Auth-aware navbar --------------------------------------------------------

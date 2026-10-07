@@ -1,3 +1,6 @@
+from http import HTTPStatus
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import (
@@ -51,6 +54,17 @@ class SignupView(SuccessMessageMixin, CreateView):
 class SignInView(LoginView):
     template_name = "accounts/login.html"
     authentication_form = SignInForm
+
+
+def locked_out(request, original_response=None, credentials=None):
+    """django-axes' lockout response: the styled page, not a bare message."""
+    minutes = int(settings.AXES_COOLOFF_TIME.total_seconds() // 60)
+    return render(
+        request,
+        "accounts/locked_out.html",
+        {"cooloff_minutes": minutes},
+        status=HTTPStatus.TOO_MANY_REQUESTS,
+    )
 
 
 class SignOutView(LogoutView):

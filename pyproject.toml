@@ -5,6 +5,7 @@ description = "The ThoughtTronix Store — Your Thoughts, Our Business."
 requires-python = ">=3.13"
 dependencies = [
     "django>=6.0,<6.1",
+    "django-axes>=8.3.1",
     "django-tailwind-cli==4.6.2",
     "environs>=15.0.1",
     "pillow>=11",

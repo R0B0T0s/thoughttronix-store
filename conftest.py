@@ -35,6 +35,14 @@ def clear_cache():
     cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def axes_disabled(settings):
+    """Login lockout is off for the ordinary suite, so tests that sign in
+    (or fail to) never trip it. The lockout tests turn it back on.
+    """
+    settings.AXES_ENABLED = False
+
+
 @pytest.fixture
 def customer(db):
     return get_user_model().objects.create_user(

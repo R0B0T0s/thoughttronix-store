@@ -12,4 +12,8 @@ Read this before writing or changing tests.
 - An autouse `clear_cache` fixture empties Django's cache before and after
   each test, so cache-backed state (the password-reset cooldown) never leaks
   between tests.
+- An autouse `axes_disabled` fixture turns django-axes off, so failed
+  sign-ins in ordinary tests never lock anyone out. Lockout tests re-enable
+  it with `settings.AXES_ENABLED = True` (the `axes_on` fixture in
+  `accounts/tests.py`).
 - The suite must be green at every phase boundary.

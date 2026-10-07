@@ -28,6 +28,19 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-07 — Account security Phase 7: login lockout with django-axes
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 7.
+2. I would like to verify in the browser, how do I do that?
+3. how can staff clear a lockout?
+4. Update PROMPTS.md
+
+### Summary
+- **Outcome:** Added django-axes 8.3.1 (`uv add`) and ran `migrate` on the local database for its tables. In `config/settings.py`: `axes` is in `INSTALLED_APPS`, `AxesStandaloneBackend` comes before `UsernameOrEmailBackend`, and `AxesMiddleware` is last in `MIDDLEWARE`. The `AXES_*` settings lock a username + IP pair after 5 failures for 15 minutes, and a successful sign-in resets the count. A locked-out attempt gets the styled `templates/accounts/locked_out.html` page with a 429 status. It's rendered by a small `locked_out` callable in `accounts/views.py`, shows the wait time, and links to password reset. `accounts/admin.py` swaps axes' `AccessAttemptAdmin` for a subclass that lets any `is_staff` user view and delete lockouts, because employees have no model permissions and the project uses no Groups. An autouse `axes_disabled` fixture in `conftest.py` turns axes off for the ordinary suite, and an `axes_on` fixture turns it back on for the lockout tests. Added seven tests: five failures lock out even the correct password; four don't; mixed username and email spellings share one count; another username from the same IP isn't locked out; the same username from another IP isn't locked out; staff see the lockout in the admin; and when staff clear it with the admin's delete action, the user can sign in again. The suite went from 316 to 323 passing; ruff and `manage.py check` are clean. Added short notes to `docs/TESTING.md` and `docs/ARCHITECTURE.md`, and ticked off Phase 7 in `plans/account-security.md`. For prompt 2, I gave a browser checklist using the seeded `customer`, `employee`, and `admin` accounts, with `axes_reset` to clear stuck lockouts. For prompt 3, I explained clearing a lockout through Admin → Axes → Access attempts (the bulk delete action or the single-record Delete), warned that "Clean up expired attempts" won't unlock an active lockout, and listed the `axes_reset` / `axes_reset_username` commands. Nothing committed.
+- **Deviations:** Two decisions went beyond the plan, and I flagged both in my reply. First, an `AXES_USERNAME_CALLABLE` (`accounts.backends.lockout_username`) maps every spelling of an account to its username. Without it, an attacker could dodge the lockout by switching between the username and differently-capitalized emails. This meant pulling the user lookup out into a module-level `find_user` shared by the backend and the callable. Second, the staff-access admin subclass. The plan said "staff can view and clear lockouts", but by default axes' admin is visible only to the superuser. No recommendations were overridden.
+- **Sideways:** Nothing failed. The existing 316 tests passed on the first run with axes installed and the fixture in place. A password reset doesn't lift an active lockout, so a customer must wait out the cool-off or ask staff. This is noted on the lockout page rather than changed. `seed` doesn't clear axes records, so lockouts survive a reseed. The admin still lives at `/admin/` until Phase 9. I didn't open the pages in a browser myself; everything was checked through the test client only.
+
 ## 2026-10-07 — Account security Phase 6: per-email password-reset cooldown
 
 ### Prompts

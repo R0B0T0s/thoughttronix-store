@@ -31,3 +31,7 @@ public function — their interfaces are the product:
 
 Settings read from `.env` via environs with working defaults — the app must
 run with no `.env` present.
+
+Login lockout is django-axes (the `AXES_*` settings). Its backend must stay
+first in `AUTHENTICATION_BACKENDS`, ahead of `accounts.backends`, and its
+middleware last in `MIDDLEWARE`.
