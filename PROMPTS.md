@@ -28,6 +28,18 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-07 — Account security Phase 4: change password, with an alert email
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 4
+2. I would like to manually check in the browser, how would I do that?
+3. Update prompts.md
+
+### Summary
+- **Outcome:** Added `accounts:password_change` at `accounts/password/`. It subclasses Django's built-in `PasswordChangeView`, which is already login-required, keeps the current session signed in, and signs out the user's other sessions. On success it redirects to the Account page with a flash message. The new `StyledPasswordChangeForm` is Django's `PasswordChangeForm` in DaisyUI classes, with "Current password" as the first field's label to match the change-email form. New passwords go through the existing four validators. Added `services.notify_password_changed` and a plain-text `emails/password_changed.txt`; accounts with no email get no alert. Added `templates/accounts/password_change.html` and a "Password" card on the Account page. Added tests for: the login redirect, rendering in the site's style, six rejections (wrong current password, mismatch, too short, numeric, common, too similar to the email), the old password failing and the new one working, this session kept while a second `Client` session is signed out, exactly one alert to the account's email, and no alert for a blank-email account. Suite at 301 passed, ruff clean. Ticked off Phase 4's acceptance criteria in `plans/account-security.md`. For prompt 2, gave a browser checklist: seed, sign in as `customer` in a normal window and a private window, try each rejection, change the password, confirm the alert prints in the runserver terminal, and confirm the private window is signed out. Re-seeding restores the demo passwords. Nothing committed.
+- **Deviations:** None; Phase 4 was built as the plan described. One small change went outside it: the shared `accounts/partials/_field.html` now wraps help text in a `<div>` instead of a `<p>`, because Django's password help text is a `<ul>`, which isn't valid inside a `<p>`. This matches what `signup.html` already does, and it also affects the address and change-email forms.
+- **Sideways:** Nothing failed. `ruff format` reformatted `accounts/tests.py` (one long parametrize row) after it was written. I didn't open the pages in a browser myself; the flows were checked through the test client only. Phases 1–3 were built in earlier sessions that have no log entries here; this entry covers only Phase 4.
+
 ## 2026-10-07 — Account security: grill interview and PRD (no code yet)
 
 ### Prompts
