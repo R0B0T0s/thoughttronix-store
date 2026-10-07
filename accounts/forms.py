@@ -32,10 +32,18 @@ class SignupForm(UserCreationForm):
 
 
 class SignInForm(AuthenticationForm):
-    """The stock authentication form, dressed in DaisyUI."""
+    """The stock authentication form, dressed in DaisyUI.
+
+    The username field also takes an email (see ``UsernameOrEmailBackend``),
+    so its label and length limit allow for one.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        username = self.fields["username"]
+        username.label = "Username or email"
+        username.max_length = User._meta.get_field("email").max_length
+        username.widget.attrs["maxlength"] = username.max_length
         for field in self.fields.values():
             field.widget.attrs["class"] = "input w-full"
 

@@ -90,12 +90,12 @@ users. The sign-in field's label says it accepts either one.
 
 ### Acceptance criteria
 
-- [ ] A customer can sign in with their username.
-- [ ] A customer can sign in with their email, in any capitalization.
-- [ ] A wrong password fails for both username and email.
-- [ ] An inactive user cannot sign in by either route.
-- [ ] A user with a blank email can still sign in by username, and a blank identifier never matches a blank-email account.
-- [ ] The sign-in label reads "Username or email" (or equivalent).
+- [x] A customer can sign in with their username.
+- [x] A customer can sign in with their email, in any capitalization.
+- [x] A wrong password fails for both username and email.
+- [x] An inactive user cannot sign in by either route.
+- [x] A user with a blank email can still sign in by username, and a blank identifier never matches a blank-email account.
+- [x] The sign-in label reads "Username or email" (or equivalent).
 
 ---
 

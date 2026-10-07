@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 import pytest
-from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, get_user_model
 from django.db import IntegrityError, transaction
 from django.urls import reverse
 
@@ -151,6 +151,82 @@ def test_login_bad_credentials_stays_put(client, customer):
 
     assert response.status_code == HTTPStatus.OK
     assert response.context["form"].non_field_errors()
+
+
+# --- Sign in with username or email -------------------------------------------
+
+
+@pytest.fixture
+def ada(db):
+    return get_user_model().objects.create_user(
+        username="ada", email="Ada@example.com", password="analytical-engine-1843"
+    )
+
+
+def sign_in(client, identifier, password):
+    return client.post(
+        reverse("accounts:login"), {"username": identifier, "password": password}
+    )
+
+
+@pytest.mark.parametrize(
+    "identifier", ["ada", "Ada@example.com", "ada@example.com", "ADA@EXAMPLE.COM"]
+)
+def test_sign_in_by_username_or_email_in_any_case(client, ada, identifier):
+    response = sign_in(client, identifier, "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert int(client.session["_auth_user_id"]) == ada.pk
+
+
+@pytest.mark.parametrize("identifier", ["ada", "ada@example.com"])
+def test_sign_in_wrong_password_fails_by_either_route(client, ada, identifier):
+    response = sign_in(client, identifier, "difference-engine")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["form"].non_field_errors()
+    assert "_auth_user_id" not in client.session
+
+
+@pytest.mark.parametrize("identifier", ["ada", "ada@example.com"])
+def test_inactive_user_cannot_sign_in_by_either_route(client, ada, identifier):
+    ada.is_active = False
+    ada.save()
+
+    response = sign_in(client, identifier, "analytical-engine-1843")
+
+    assert response.status_code == HTTPStatus.OK
+    assert "_auth_user_id" not in client.session
+
+
+def test_blank_email_user_signs_in_by_username(client, customer):
+    response = sign_in(client, "customer", "customer123")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert int(client.session["_auth_user_id"]) == customer.pk
+
+
+def test_blank_identifier_never_matches_blank_email_account(customer):
+    assert authenticate(username="", password="customer123") is None
+
+
+def test_username_match_wins_over_another_users_email(client, ada):
+    # A username that happens to look like someone else's email.
+    impostor = get_user_model().objects.create_user(
+        username="ada@example.com", password="impostor-pass-77"
+    )
+
+    response = sign_in(client, "ada@example.com", "impostor-pass-77")
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert int(client.session["_auth_user_id"]) == impostor.pk
+
+
+def test_sign_in_label_mentions_email(client, db):
+    response = client.get(reverse("accounts:login"))
+
+    assert response.context["form"].fields["username"].label == "Username or email"
+    assert "Username or email" in response.content.decode()
 
 
 def test_logout_signs_out_with_message(client, customer):

@@ -95,6 +95,9 @@ DATABASES = {
 
 AUTH_USER_MODEL = "accounts.User"
 
+# Sign in with a username or an email.
+AUTHENTICATION_BACKENDS = ["accounts.backends.UsernameOrEmailBackend"]
+
 LOGIN_URL = "accounts:login"
 
 LOGIN_REDIRECT_URL = "products:catalog"
