@@ -239,6 +239,113 @@ def test_logout_signs_out_with_message(client, customer):
     assert not response.context["user"].is_authenticated
 
 
+# --- The Account page and change email ----------------------------------------
+
+
+@pytest.mark.parametrize("name", ["accounts:account", "accounts:email_change"])
+def test_account_pages_redirect_anonymous_to_login(client, db, name):
+    url = reverse(name)
+
+    response = client.get(url)
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == f"{reverse('accounts:login')}?next={url}"
+
+
+def test_account_page_shows_current_email(client, ada):
+    client.force_login(ada)
+
+    page = client.get(reverse("accounts:account")).content.decode()
+
+    assert "Ada@example.com" in page
+    assert "Change email" in page
+    assert reverse("accounts:email_change") in page
+
+
+def test_account_page_prompts_blank_email_user_to_add_one(client, customer):
+    client.force_login(customer)
+
+    page = client.get(reverse("accounts:account")).content.decode()
+
+    assert "Add an email" in page
+    assert reverse("accounts:email_change") in page
+
+
+def change_email(client, email, password):
+    return client.post(
+        reverse("accounts:email_change"),
+        {"email": email, "current_password": password},
+        follow=True,
+    )
+
+
+def test_email_change_wrong_password_leaves_email_untouched(client, ada, mailoutbox):
+    client.force_login(ada)
+
+    response = change_email(client, "lovelace@example.com", "difference-engine")
+
+    assert response.context["form"].errors["current_password"]
+    ada.refresh_from_db()
+    assert ada.email == "Ada@example.com"
+    assert mailoutbox == []
+
+
+@pytest.mark.parametrize("taken", ["babbage@example.com", "BABBAGE@Example.com"])
+def test_email_change_rejects_email_used_by_another_account(
+    client, ada, mailoutbox, taken
+):
+    get_user_model().objects.create_user(
+        username="babbage", email="babbage@example.com", password="x"
+    )
+    client.force_login(ada)
+
+    response = change_email(client, taken, "analytical-engine-1843")
+
+    assert response.context["form"].errors["email"] == [
+        "An account with that email already exists."
+    ]
+    ada.refresh_from_db()
+    assert ada.email == "Ada@example.com"
+    assert mailoutbox == []
+
+
+def test_email_change_rejects_current_email(client, ada, mailoutbox):
+    client.force_login(ada)
+
+    response = change_email(client, "ada@EXAMPLE.com", "analytical-engine-1843")
+
+    assert response.context["form"].errors["email"]
+    assert mailoutbox == []
+
+
+def test_email_change_saves_and_alerts_old_address(client, ada, mailoutbox):
+    client.force_login(ada)
+
+    response = change_email(client, "Lovelace@EXAMPLE.com", "analytical-engine-1843")
+
+    assert response.redirect_chain[-1][0] == reverse("accounts:account")
+    assert "Your email is now Lovelace@example.com." in response.content.decode()
+    ada.refresh_from_db()
+    assert ada.email == "Lovelace@example.com"
+
+    assert len(mailoutbox) == 1
+    alert = mailoutbox[0]
+    assert alert.to == ["Ada@example.com"]
+    assert "changed" in alert.subject
+    assert "Lovelace@example.com" in alert.body
+
+
+def test_adding_email_to_blank_account_sends_no_alert(client, customer, mailoutbox):
+    client.force_login(customer)
+
+    response = change_email(client, "casey@example.com", "customer123")
+
+    assert response.redirect_chain[-1][0] == reverse("accounts:account")
+    customer.refresh_from_db()
+    assert customer.email == "casey@example.com"
+    assert mailoutbox == []
+
+
 # --- Auth-aware navbar --------------------------------------------------------
 
 
@@ -258,3 +365,19 @@ def test_navbar_greets_signed_in_customer(client, customer):
     assert "Hi, customer" in page
     assert "Sign out" in page
     assert reverse("accounts:signup") not in page
+
+
+def test_navbar_shows_account_next_to_addresses(client, customer):
+    client.force_login(customer)
+
+    page = client.get(reverse("products:catalog")).content.decode()
+
+    addresses = page.index(f'href="{reverse("accounts:address_list")}"')
+    account = page.index(f'href="{reverse("accounts:account")}"')
+    assert 0 < account - addresses < 200
+
+
+def test_navbar_hides_account_from_visitors(client, db):
+    page = client.get(reverse("products:catalog")).content.decode()
+
+    assert f'href="{reverse("accounts:account")}"' not in page

@@ -116,13 +116,13 @@ address.
 
 ### Acceptance criteria
 
-- [ ] Anonymous visitors are redirected to sign in from the Account and change-email pages.
-- [ ] The Account page shows the current email, or an "add an email" prompt when it's blank.
-- [ ] The navbar shows "Account" next to "Addresses" for signed-in users.
-- [ ] A wrong current password rejects the change and leaves the email untouched.
-- [ ] An email already used by another account (in any capitalization) is rejected.
-- [ ] A successful change saves the normalized new email, flashes a message, and sends exactly one alert, addressed to the old email.
-- [ ] Adding an email to a blank-email account succeeds and sends no alert.
+- [x] Anonymous visitors are redirected to sign in from the Account and change-email pages.
+- [x] The Account page shows the current email, or an "add an email" prompt when it's blank.
+- [x] The navbar shows "Account" next to "Addresses" for signed-in users.
+- [x] A wrong current password rejects the change and leaves the email untouched.
+- [x] An email already used by another account (in any capitalization) is rejected.
+- [x] A successful change saves the normalized new email, flashes a message, and sends exactly one alert, addressed to the old email.
+- [x] Adding an email to a blank-email account succeeds and sends no alert.
 
 ---
 

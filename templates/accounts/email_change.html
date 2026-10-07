@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if user.email %}Change email{% else %}Add an email{% endif %} — The ThoughtTronix Store
+{% endblock %}
+
+{% block content %}
+  <div class="card mx-auto max-w-md bg-base-100 shadow-md">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">
+        {% if user.email %}Change email{% else %}Add an email{% endif %}
+      </h1>
+      {% if user.email %}
+        <p class="text-sm opacity-70">
+          Currently {{ user.email }}. We'll send a notice there once it changes.
+        </p>
+      {% endif %}
+
+      <form method="post" class="mt-2 space-y-4">
+        {% csrf_token %}
+        {% for field in form %}
+          {% include "accounts/partials/_field.html" %}
+        {% endfor %}
+        <div class="mt-2 flex items-center justify-end gap-2">
+          <a href="{% url 'accounts:account' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save email</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

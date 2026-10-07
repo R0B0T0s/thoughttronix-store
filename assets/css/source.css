@@ -3,3 +3,7 @@
 @plugin "daisyui" {
   themes: night --default;
 }
+
+/* base.html builds flash-message classes as alert-{{ message.tags }}, which
+   Tailwind's scanner can't see — list every level so each one is compiled. */
+@source inline("alert-debug alert-info alert-success alert-warning alert-error");

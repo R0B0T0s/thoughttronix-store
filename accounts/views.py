@@ -5,9 +5,17 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    FormView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
-from .forms import AddressForm, SignInForm, SignupForm
+from . import services
+from .forms import AddressForm, EmailChangeForm, SignInForm, SignupForm
 from .models import Address
 
 
@@ -36,6 +44,29 @@ class SignOutView(LogoutView):
         response = super().post(request, *args, **kwargs)
         messages.info(request, "You have signed out.")
         return response
+
+
+# --- The Account page ----------------------------------------------------------
+
+
+class AccountView(LoginRequiredMixin, TemplateView):
+    template_name = "accounts/account.html"
+
+
+class EmailChangeView(LoginRequiredMixin, FormView):
+    form_class = EmailChangeForm
+    template_name = "accounts/email_change.html"
+    success_url = reverse_lazy("accounts:account")
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
+
+    def form_valid(self, form):
+        old_email = self.request.user.email
+        user = form.save()
+        services.notify_email_changed(user, old_email)
+        messages.success(self.request, f"Your email is now {user.email}.")
+        return super().form_valid(form)
 
 
 # --- The address book --------------------------------------------------------
