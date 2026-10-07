@@ -16,4 +16,7 @@ Read this before writing or changing tests.
   sign-ins in ordinary tests never lock anyone out. Lockout tests re-enable
   it with `settings.AXES_ENABLED = True` (the `axes_on` fixture in
   `accounts/tests.py`).
+- Settings that depend on the environment are tested in `config/tests.py`
+  by loading `config.settings` in a subprocess with a chosen environment
+  (and `.env` reading switched off), since settings are read once at import.
 - The suite must be green at every phase boundary.

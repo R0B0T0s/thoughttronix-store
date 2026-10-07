@@ -236,10 +236,10 @@ emails come from the configured "from" address.
 
 ### Acceptance criteria
 
-- [ ] With no mail settings, emails print to the terminal.
-- [ ] With an email host set, `EMAIL_BACKEND` is the SMTP backend and the host, port, user, password, and TLS values come from `.env`.
-- [ ] `DEFAULT_FROM_EMAIL` comes from `.env` with a sensible store default.
-- [ ] `.env.example` lists every mail key, and no credentials appear in source.
+- [x] With no mail settings, emails print to the terminal.
+- [x] With an email host set, `EMAIL_BACKEND` is the SMTP backend and the host, port, user, password, and TLS values come from `.env`.
+- [x] `DEFAULT_FROM_EMAIL` comes from `.env` with a sensible store default.
+- [x] `.env.example` lists every mail key, and no credentials appear in source.
 
 ---
 

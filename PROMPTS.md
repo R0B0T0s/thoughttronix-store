@@ -28,6 +28,19 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-07 — Account security Phase 8: real email delivery from the environment
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 8.
+2. I would like to manually verify in the browser, how would I do that?
+3. the mail server does not show anything. The email does not show up in the first terminal.
+4. Add to PROMPTS.md
+
+### Summary
+- **Outcome:** `config/settings.py` now reads `EMAIL_HOST` from `.env`. When it's blank (the default), `EMAIL_BACKEND` stays `config.mail.ReadableConsoleEmailBackend`. When it's set, the SMTP backend is used, with `EMAIL_PORT` (default 587), `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `EMAIL_USE_TLS` (default on) also read from `.env`. `DEFAULT_FROM_EMAIL` comes from `.env`, defaulting to `The ThoughtTronix Store <no-reply@thoughttronix.example>`. The alert service and the reset view already send with `from_email=None`, so both pick up that address with no code change. `.env.example` lists every mail key, commented out. Added `config/tests.py` with five tests that load settings in a subprocess (settings are read once at import) with a chosen environment and `.env` reading switched off: console by default, SMTP plus every value from the environment once a host is set, the 587/TLS defaults, and the default and overridden "from" address. Added two tests to `accounts/tests.py` checking that the alert and reset emails are sent from `DEFAULT_FROM_EMAIL`. The suite went from 323 to 330 passing; ruff is clean. Added an email paragraph to the Settings section of `docs/ARCHITECTURE.md`, noted the subprocess pattern in `docs/TESTING.md`, and ticked off Phase 8 in `plans/account-security.md`. For prompt 2, I gave a two-part browser checklist: console mode (request a reset and read the email in the runserver terminal), then SMTP mode against a throwaway local server (`uvx aiosmtpd -n -l localhost:1025`, with Mailpit as an alternative) using a `.env` with `EMAIL_USE_TLS=False` and a server restart. Nothing committed.
+- **Deviations:** None from the plan. The docs updates were done here rather than waiting for Phase 9, because they were short and describe exactly what this phase added. Prompt 3 was a follow-up when the browser check didn't work.
+- **Sideways:** My first version of the settings tests isolated keys by setting them to empty strings. environs treats an empty variable as a real value, so two tests failed (an empty `EMAIL_USE_TLS` can't be parsed as a boolean, and an empty `DEFAULT_FROM_EMAIL` overrode the default). I fixed it by removing the keys from the subprocess environment and stubbing out `env.read_env`, which also keeps a developer's own `.env` from affecting the result. I also dropped a tautological "no credentials in source" test before running. In the browser check (prompt 3), the mail settings had been added uncommented to `.env.example` instead of a new `.env`. The app only reads `.env`, so it stayed on the console backend and the mail server got nothing. I confirmed no `.env` existed and listed the registered users' emails. The empty Django terminal was most likely the earlier phases working as designed: no email is sent for an unregistered address, or within the 5-minute reset cooldown. I gave the fix (create `.env`, restart the server, use a registered address not tried in the last 5 minutes). I recommended removing the uncommented lines from `.env.example` but left the file as the user edited it, so those four live lines are still there at the time of this entry. Whether the SMTP check then worked in the browser hasn't been reported back. I didn't open the pages in a browser myself.
+
 ## 2026-10-07 — Account security Phase 7: login lockout with django-axes
 
 ### Prompts

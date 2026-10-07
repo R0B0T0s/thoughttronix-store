@@ -184,6 +184,23 @@ TAILWIND_CLI_VERSION = "2.9.2"
 TAILWIND_CLI_SRC_CSS = "assets/css/source.css"
 
 
-# Email — printed to the terminal, decoded so reset links can be copied.
+# Email — printed to the terminal (decoded, so reset links can be copied)
+# until EMAIL_HOST is set in .env; then sent for real over SMTP.
+# Mail-server credentials live only in .env, never here.
 
-EMAIL_BACKEND = "config.mail.ReadableConsoleEmailBackend"
+EMAIL_HOST = env.str("EMAIL_HOST", default="")
+
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+    EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
+    EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="")
+    EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+else:
+    EMAIL_BACKEND = "config.mail.ReadableConsoleEmailBackend"
+
+# The "from" address on alert and password-reset emails.
+DEFAULT_FROM_EMAIL = env.str(
+    "DEFAULT_FROM_EMAIL",
+    default="The ThoughtTronix Store <no-reply@thoughttronix.example>",
+)

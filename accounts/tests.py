@@ -12,6 +12,7 @@ from django.db import IntegrityError, transaction
 from django.test import Client
 from django.urls import reverse
 
+from accounts.services import notify_email_changed, notify_password_changed
 from config.mail import ReadableConsoleEmailBackend
 
 # --- Signup -----------------------------------------------------------------
@@ -758,6 +759,30 @@ def test_staff_clearing_a_lockout_lets_the_user_sign_in(
     response = sign_in(client, "ada", "analytical-engine-1843")
     assert response.status_code == HTTPStatus.FOUND
     assert int(client.session["_auth_user_id"]) == ada.pk
+
+
+# --- Sender address -------------------------------------------------------------
+
+STORE_SENDER = "The Store <alerts@thoughttronix.example>"
+
+
+def test_alert_emails_come_from_the_configured_address(ada, settings, mailoutbox):
+    settings.DEFAULT_FROM_EMAIL = STORE_SENDER
+
+    notify_password_changed(ada)
+    notify_email_changed(ada, "old@example.com")
+
+    assert [m.from_email for m in mailoutbox] == [STORE_SENDER, STORE_SENDER]
+
+
+def test_reset_email_comes_from_the_configured_address(
+    client, ada, settings, mailoutbox
+):
+    settings.DEFAULT_FROM_EMAIL = STORE_SENDER
+
+    request_reset(client, "ada@example.com")
+
+    assert mailoutbox[0].from_email == STORE_SENDER
 
 
 # --- Auth-aware navbar --------------------------------------------------------

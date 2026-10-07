@@ -35,3 +35,9 @@ run with no `.env` present.
 Login lockout is django-axes (the `AXES_*` settings). Its backend must stay
 first in `AUTHENTICATION_BACKENDS`, ahead of `accounts.backends`, and its
 middleware last in `MIDDLEWARE`.
+
+Email prints to the terminal (`config.mail.ReadableConsoleEmailBackend`)
+until `EMAIL_HOST` is set in `.env`; then the SMTP backend is used, with
+`EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, and `EMAIL_USE_TLS`
+also read from `.env`. All mail is sent from `DEFAULT_FROM_EMAIL` (send with
+`from_email=None`). Mail credentials never go in source.
