@@ -9,4 +9,7 @@ Read this before writing or changing tests.
   `unavailable_product`, `tag`, `cart`, `cart_item`, `coupon`, `address`.
 - An autouse `media_root` fixture points `MEDIA_ROOT` at a temp folder, so
   image tests never touch the real `media/`.
+- An autouse `clear_cache` fixture empties Django's cache before and after
+  each test, so cache-backed state (the password-reset cooldown) never leaks
+  between tests.
 - The suite must be green at every phase boundary.

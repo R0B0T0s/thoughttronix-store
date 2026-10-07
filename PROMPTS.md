@@ -28,6 +28,18 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-07 — Account security Phase 6: per-email password-reset cooldown
+
+### Prompts
+1. @prd/account-security.md @plans/account-security.md Do Phase 6.
+2. I would like to verify the changes with the browser, ho would I do that?
+3. Update PROMPTS.md
+
+### Summary
+- **Outcome:** `StyledPasswordResetForm` now overrides `save()` so each address gets at most one reset email per `COOLDOWN_SECONDS` (5 minutes). It uses `cache.add`, which only writes when the key is missing, on a key built from a SHA-256 hash of the lowercased address. Different capitalizations therefore share one cooldown, and the cache never holds a raw email. A throttled request still redirects to the same "Check your inbox" page. No `CACHES` setting was added, so the project uses Django's default in-memory cache. Added an autouse `clear_cache` fixture to `conftest.py` and noted it in `docs/TESTING.md`. Added five tests: a second request within the cooldown sends nothing but gets the same response; capitalization is ignored; at 4 minutes the request is still blocked, and at 5 minutes 5 seconds it sends again (via a monkeypatched `time.time`); different addresses have separate cooldowns; and the cache starts empty in each test. Suite at 316 passed, ruff clean. Ticked off Phase 6 in `plans/account-security.md`. For prompt 2, gave a browser checklist using the seeded `customer@example.com` and `employee@example.com`, reading the emails in the runserver terminal. Nothing committed.
+- **Deviations:** One decision went beyond the plan: the cooldown also applies to addresses with no account, so registered and unknown emails behave the same. I flagged it in my reply; the user hasn't commented. No recommendations were overridden.
+- **Sideways:** Nothing failed. `ruff format` reformatted `accounts/forms.py` (one long line) after it was written. Two limits were noted rather than fixed. First, the in-memory cache is per process: a dev-server restart, including the autoreload on a code change, clears every cooldown, and a production setup running several processes would need a shared cache. Second, the "cache starts empty" test depends on running after the other cooldown tests in file order, so it's a weak check of the fixture. I didn't open the pages in a browser myself; the flow was checked through the test client only.
+
 ## 2026-10-07 — Account security Phase 5: password reset by email, plus a readable console mail backend
 
 ### Prompts

@@ -191,11 +191,11 @@ request, so the throttle reveals nothing about whether the account exists.
 
 ### Acceptance criteria
 
-- [ ] A second request for the same address within five minutes sends no email but shows the normal confirmation.
-- [ ] Differently-capitalized requests for the same address share one cooldown.
-- [ ] Once the cooldown has passed, a new request sends an email again.
-- [ ] Cooldowns for different addresses are independent.
-- [ ] The cache is cleared between tests so cooldowns don't leak.
+- [x] A second request for the same address within five minutes sends no email but shows the normal confirmation.
+- [x] Differently-capitalized requests for the same address share one cooldown.
+- [x] Once the cooldown has passed, a new request sends an email again.
+- [x] Cooldowns for different addresses are independent.
+- [x] The cache is cleared between tests so cooldowns don't leak.
 
 ---
 

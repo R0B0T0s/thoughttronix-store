@@ -1,5 +1,6 @@
 import io
 import re
+import time
 from datetime import datetime, timedelta
 from http import HTTPStatus
 
@@ -603,6 +604,62 @@ def test_blank_email_user_cannot_be_reset(client, customer, mailoutbox):
     assert response.status_code == HTTPStatus.OK
     assert response.context["form"].errors["email"]
     assert mailoutbox == []
+
+
+# --- Password reset cooldown ---------------------------------------------------
+
+
+def test_second_reset_within_cooldown_sends_nothing_but_looks_the_same(
+    client, ada, mailoutbox
+):
+    first = request_reset(client, "ada@example.com")
+
+    second = request_reset(client, "ada@example.com")
+
+    assert len(mailoutbox) == 1
+    assert second.status_code == first.status_code
+    assert second.url == first.url
+    assert "Check your inbox" in client.get(second.url).content.decode()
+
+
+def test_reset_cooldown_ignores_capitalization(client, ada, mailoutbox):
+    request_reset(client, "ada@example.com")
+
+    request_reset(client, "ADA@Example.COM")
+
+    assert len(mailoutbox) == 1
+
+
+def test_reset_sends_again_after_cooldown(client, ada, mailoutbox, monkeypatch):
+    request_reset(client, "ada@example.com")
+    started = time.time()
+
+    monkeypatch.setattr(time, "time", lambda: started + 4 * 60)
+    request_reset(client, "ada@example.com")
+    assert len(mailoutbox) == 1
+
+    monkeypatch.setattr(time, "time", lambda: started + 5 * 60 + 5)
+    request_reset(client, "ada@example.com")
+    assert len(mailoutbox) == 2
+
+
+def test_reset_cooldowns_are_per_address(client, ada, mailoutbox):
+    grace = get_user_model().objects.create_user(
+        username="grace", email="grace@example.com", password="cobol-compiler-1959"
+    )
+    request_reset(client, "ada@example.com")
+
+    request_reset(client, "grace@example.com")
+
+    assert [m.to for m in mailoutbox] == [["Ada@example.com"], [grace.email]]
+
+
+def test_cache_starts_empty_so_cooldowns_never_leak(client, ada, mailoutbox):
+    # Every test above requested a reset for ada@example.com; the autouse
+    # clear_cache fixture means this one still gets its email.
+    request_reset(client, "ada@example.com")
+
+    assert len(mailoutbox) == 1
 
 
 # --- Auth-aware navbar --------------------------------------------------------

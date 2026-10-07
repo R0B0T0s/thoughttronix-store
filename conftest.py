@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.utils import timezone
 
 from accounts.models import Address
@@ -22,6 +23,16 @@ def media_root(settings, tmp_path):
     """Every test writes uploads to a throwaway folder, never the real media/."""
     settings.MEDIA_ROOT = tmp_path / "media"
     return settings.MEDIA_ROOT
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Every test starts with an empty cache, so cache-backed state (like
+    the password-reset cooldown) never leaks from one test into the next.
+    """
+    cache.clear()
+    yield
+    cache.clear()
 
 
 @pytest.fixture
