@@ -1,10 +1,16 @@
+import io
+import re
+from datetime import datetime, timedelta
 from http import HTTPStatus
 
 import pytest
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import IntegrityError, transaction
 from django.test import Client
 from django.urls import reverse
+
+from config.mail import ReadableConsoleEmailBackend
 
 # --- Signup -----------------------------------------------------------------
 
@@ -454,6 +460,148 @@ def test_password_change_without_email_sends_no_alert(client, customer, mailoutb
     response = change_password(client, "customer123", "lovelace-notes-g")
 
     assert response.redirect_chain[-1][0] == reverse("accounts:account")
+    assert mailoutbox == []
+
+
+# --- Password reset --------------------------------------------------------------
+
+
+def request_reset(client, email):
+    return client.post(reverse("accounts:password_reset"), {"email": email})
+
+
+def reset_link(message):
+    """The confirm URL path from a reset email."""
+    match = re.search(r"https?://[^/\s]+(/\S+)", message.body)
+    return match.group(1)
+
+
+def test_login_page_links_to_password_reset(client, db):
+    page = client.get(reverse("accounts:login")).content.decode()
+
+    assert "Forgot your password?" in page
+    assert reverse("accounts:password_reset") in page
+
+
+def test_password_reset_page_renders_in_site_style(client, db):
+    response = client.get(reverse("accounts:password_reset"))
+
+    assert response.status_code == HTTPStatus.OK
+    assert "base.html" in [t.name for t in response.templates]
+    assert 'class="input w-full"' in response.content.decode()
+
+
+@pytest.mark.parametrize("email", ["Ada@example.com", "ADA@EXAMPLE.COM"])
+def test_password_reset_emails_a_link_to_the_set_password_form(
+    client, ada, mailoutbox, email
+):
+    response = request_reset(client, email)
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert response.url == reverse("accounts:password_reset_done")
+    assert len(mailoutbox) == 1
+    message = mailoutbox[0]
+    assert message.to == ["Ada@example.com"]
+    assert message.subject == "Reset your ThoughtTronix password"
+
+    form_page = client.get(reset_link(message), follow=True)
+    assert form_page.context["validlink"]
+    assert "new_password1" in form_page.context["form"].fields
+
+
+def test_reset_link_printed_to_the_console_opens_the_form(client, ada, mailoutbox):
+    # The link is longer than 78 characters, which makes the raw MIME body
+    # quoted-printable; the dev console backend must print it whole.
+    request_reset(client, "ada@example.com")
+    stream = io.StringIO()
+    ReadableConsoleEmailBackend(stream=stream).send_messages(mailoutbox)
+
+    link = re.search(r"https?://[^/\s]+(/\S+)", stream.getvalue()).group(1)
+
+    assert client.get(link, follow=True).context["validlink"]
+    assert "=E2=80=94" not in stream.getvalue()
+
+
+def test_password_reset_for_unknown_email_looks_the_same(client, ada, mailoutbox):
+    known = request_reset(client, "ada@example.com")
+    mailoutbox.clear()
+
+    unknown = request_reset(client, "nobody@example.com")
+
+    assert mailoutbox == []
+    assert unknown.status_code == known.status_code
+    assert unknown.url == known.url
+    page = client.get(unknown.url).content.decode()
+    assert "Check your inbox" in page
+
+
+def set_new_password(client, link, password):
+    """Open a reset link and submit a new password through it."""
+    form_page = client.get(link, follow=True)
+    return client.post(
+        form_page.redirect_chain[-1][0] if form_page.redirect_chain else link,
+        {"new_password1": password, "new_password2": password},
+        follow=True,
+    )
+
+
+def test_password_reset_link_sets_a_password_the_user_can_sign_in_with(
+    client, ada, mailoutbox
+):
+    request_reset(client, "ada@example.com")
+
+    response = set_new_password(client, reset_link(mailoutbox[0]), "lovelace-notes-g")
+
+    assert response.redirect_chain[-1][0] == reverse("accounts:password_reset_complete")
+    assert "Your password has been reset" in response.content.decode()
+    assert sign_in(client, "ada", "analytical-engine-1843").status_code == HTTPStatus.OK
+    assert sign_in(client, "ada", "lovelace-notes-g").status_code == HTTPStatus.FOUND
+
+
+def assert_invalid_link_page(response):
+    page = response.content.decode()
+    assert not response.context["validlink"]
+    assert "This link is no longer valid" in page
+    assert reverse("accounts:password_reset") in page
+
+
+def test_used_password_reset_link_is_rejected(client, ada, mailoutbox):
+    request_reset(client, "ada@example.com")
+    link = reset_link(mailoutbox[0])
+    set_new_password(client, link, "lovelace-notes-g")
+
+    response = Client().get(link, follow=True)
+
+    assert_invalid_link_page(response)
+
+
+def test_password_reset_link_expires_after_one_hour(
+    client, ada, mailoutbox, monkeypatch
+):
+    request_reset(client, "ada@example.com")
+    link = reset_link(mailoutbox[0])
+    issued = datetime.now()
+
+    monkeypatch.setattr(
+        PasswordResetTokenGenerator,
+        "_now",
+        lambda self: issued + timedelta(minutes=59),
+    )
+    assert client.get(link, follow=True).context["validlink"]
+
+    monkeypatch.setattr(
+        PasswordResetTokenGenerator,
+        "_now",
+        lambda self: issued + timedelta(hours=1, seconds=5),
+    )
+    assert_invalid_link_page(Client().get(link, follow=True))
+
+
+def test_blank_email_user_cannot_be_reset(client, customer, mailoutbox):
+    response = request_reset(client, "")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.context["form"].errors["email"]
     assert mailoutbox == []
 
 

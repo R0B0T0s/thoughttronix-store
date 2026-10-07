@@ -168,13 +168,13 @@ request a new one" message with a link back to the request form.
 
 ### Acceptance criteria
 
-- [ ] The sign-in page links to the reset request page.
-- [ ] Requesting a reset for a registered email (in any capitalization) sends one email whose link opens the set-new-password form.
-- [ ] Requesting a reset for an unknown email sends nothing and returns the same response as a registered one.
-- [ ] Setting a new password through a valid link lets the user sign in with it.
-- [ ] Reusing a link after it has been used shows the invalid-link message.
-- [ ] A link older than one hour shows the invalid-link message.
-- [ ] Users with a blank email cannot be reset by email.
+- [x] The sign-in page links to the reset request page.
+- [x] Requesting a reset for a registered email (in any capitalization) sends one email whose link opens the set-new-password form.
+- [x] Requesting a reset for an unknown email sends nothing and returns the same response as a registered one.
+- [x] Setting a new password through a valid link lets the user sign in with it.
+- [x] Reusing a link after it has been used shows the invalid-link message.
+- [x] A link older than one hour shows the invalid-link message.
+- [x] Users with a blank email cannot be reset by email.
 
 ---
 

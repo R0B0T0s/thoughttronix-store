@@ -2,6 +2,8 @@ from django import forms
 from django.contrib.auth.forms import (
     AuthenticationForm,
     PasswordChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
     UserCreationForm,
 )
 
@@ -106,6 +108,29 @@ class StyledPasswordChangeForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["old_password"].label = "Current password"
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "input w-full"
+
+
+class StyledPasswordResetForm(PasswordResetForm):
+    """Django's reset request form, dressed in DaisyUI.
+
+    The stock form already matches the email case-insensitively, skips
+    inactive users, and sends nothing — silently — for an unknown address.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs["class"] = "input w-full"
+
+
+class StyledSetPasswordForm(SetPasswordForm):
+    """Django's set-new-password form (used by a reset link), dressed in
+    DaisyUI. The new password runs through the password validators.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "input w-full"
 

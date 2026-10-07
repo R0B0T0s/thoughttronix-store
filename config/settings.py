@@ -104,6 +104,9 @@ LOGIN_REDIRECT_URL = "products:catalog"
 
 LOGOUT_REDIRECT_URL = "products:catalog"
 
+# Password reset links expire after one hour (and are single-use by design).
+PASSWORD_RESET_TIMEOUT = 60 * 60
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -157,6 +160,6 @@ TAILWIND_CLI_VERSION = "2.9.2"
 TAILWIND_CLI_SRC_CSS = "assets/css/source.css"
 
 
-# Email — console backend only; real mail is out of scope for the core.
+# Email — printed to the terminal, decoded so reset links can be copied.
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "config.mail.ReadableConsoleEmailBackend"
