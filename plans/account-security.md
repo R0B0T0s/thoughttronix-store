@@ -261,9 +261,9 @@ and append the build's entry to `PROMPTS.md`.
 
 ### Acceptance criteria
 
-- [ ] With no `.env`, the site runs in debug mode with the dev secret key, as it does today.
-- [ ] Loading settings with `DEBUG=false` and the default secret key fails with a clear error (tested in a subprocess).
-- [ ] With `DEBUG=false` and a proper key, secure cookies, the SSL redirect, and HSTS are all enabled.
-- [ ] `manage.py check --deploy` passes with no warnings under that configuration.
-- [ ] `/admin/` returns 404, and the admin is reachable at the configured path.
-- [ ] Docs reflect the new settings, and `PROMPTS.md` has a new entry appended.
+- [x] With no `.env`, the site runs in debug mode with the dev secret key, as it does today.
+- [x] Loading settings with `DEBUG=false` and the default secret key fails with a clear error (tested in a subprocess).
+- [x] With `DEBUG=false` and a proper key, secure cookies, the SSL redirect, and HSTS are all enabled.
+- [x] `manage.py check --deploy` passes with no warnings under that configuration.
+- [x] `/admin/` returns 404, and the admin is reachable at the configured path.
+- [x] Docs reflect the new settings, and `PROMPTS.md` has a new entry appended.

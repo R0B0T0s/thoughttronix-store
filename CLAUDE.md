@@ -35,6 +35,9 @@ A server-rendered Django 6 storefront and back office. The PRD (`prd/core-platfo
   module; views stay thin.
 - `PROMPTS.md` is the AI-usage log — append entries, never rewrite history.
 - `assets/css/tailwind.css` is compiled output (gitignored) — never edit it.
+- The Django admin lives at `/control-room/` (`ADMIN_URL` in `.env`), not
+  `/admin/`. `DEBUG=False` requires a real `SECRET_KEY` in `.env`; keys are
+  documented in `.env.example`.
 
 ## Reference docs — read before working in that area
 

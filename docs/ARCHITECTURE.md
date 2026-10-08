@@ -32,6 +32,16 @@ public function — their interfaces are the product:
 Settings read from `.env` via environs with working defaults — the app must
 run with no `.env` present.
 
+With no `.env`, `DEBUG` is on and `SECRET_KEY` is the development default.
+Setting `DEBUG=False` without a real `SECRET_KEY` raises
+`ImproperlyConfigured` at startup. Debug-off also turns on secure session and
+CSRF cookies, `SECURE_SSL_REDIRECT`, and HSTS (`SECURE_HSTS_SECONDS`, default
+one year, with subdomains and preload), so `manage.py check --deploy` is
+clean. Hardening settings key off `DEBUG`; don't toggle them individually.
+
+The Django admin is mounted at `ADMIN_URL` (default `control-room/`), never
+`admin/`. Link to it with `reverse("admin:index")`, never a hard-coded path.
+
 Login lockout is django-axes (the `AXES_*` settings). Its backend must stay
 first in `AUTHENTICATION_BACKENDS`, ahead of `accounts.backends`, and its
 middleware last in `MIDDLEWARE`.

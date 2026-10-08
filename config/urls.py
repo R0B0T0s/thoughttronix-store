@@ -11,7 +11,7 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),
     path("accounts/", include("accounts.urls")),
     path("", include("dashboard.urls")),
     path("", include("orders.urls")),

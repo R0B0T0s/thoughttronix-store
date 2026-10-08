@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from environs import env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -19,14 +20,22 @@ env.read_env(BASE_DIR / ".env", recurse=False)
 
 # SECURITY WARNING: the default is for development only —
 # set SECRET_KEY in .env for anything beyond a laptop.
-SECRET_KEY = env.str(
-    "SECRET_KEY",
-    default="django-insecure-your-thoughts-our-business-dev-only",
-)
+DEV_SECRET_KEY = "django-insecure-your-thoughts-our-business-dev-only"
+
+SECRET_KEY = env.str("SECRET_KEY", default=DEV_SECRET_KEY)
 
 DEBUG = env.bool("DEBUG", default=True)
 
+if not DEBUG and SECRET_KEY == DEV_SECRET_KEY:
+    raise ImproperlyConfigured(
+        "DEBUG is off but SECRET_KEY is still the development default. "
+        "Set a long, random SECRET_KEY in .env before running in production."
+    )
+
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+
+# The Django admin lives here rather than at the guessable "admin/".
+ADMIN_URL = env.str("ADMIN_URL", default="control-room").strip("/") + "/"
 
 
 # Application definition
@@ -204,3 +213,20 @@ DEFAULT_FROM_EMAIL = env.str(
     "DEFAULT_FROM_EMAIL",
     default="The ThoughtTronix Store <no-reply@thoughttronix.example>",
 )
+
+
+# HTTPS hardening — on whenever DEBUG is off, so `check --deploy` is clean.
+# Locally (DEBUG on) cookies still work over plain http://127.0.0.1.
+
+SESSION_COOKIE_SECURE = not DEBUG
+
+CSRF_COOKIE_SECURE = not DEBUG
+
+SECURE_SSL_REDIRECT = not DEBUG
+
+# One year of HSTS once deployed; browsers then refuse plain HTTP outright.
+SECURE_HSTS_SECONDS = 0 if DEBUG else env.int("SECURE_HSTS_SECONDS", default=31536000)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+
+SECURE_HSTS_PRELOAD = not DEBUG
