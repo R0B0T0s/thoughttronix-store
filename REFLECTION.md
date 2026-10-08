@@ -1,3 +1,7 @@
+## ACCOUNT SECURITY CENTER
+Q1- Phase 5. This phase involved creating a seperate server to act as an email for password resetting. It required a file called .env, but Claude did not create .env. I havd to manually create and fill it so that the email server was operational. Before the server was operational, password reset emails were sent to the terminal. Because I did not receive an email in the terminal or the new server mailroom, I asked for a correction, and Claude gave me one. 
+Q4- I liked Phase 4. It allowed me to work with multiple windows open for the thoughttronix-store. It just makes sure that if you change your password, then any other active session with that same account will be automatically logged out. Verifing was easy, just needed to refresh the page. 
+
 ## PRODUCT IMAGES
 Q1- The question Claude gave me was: Where else should product images appear? I answered with: Back-office list (Recommended), Order history, Cart. I thought that haviing images show up in the cart and order history was goiing to be great, oh how I was wrong. I later reverted it so that images only show up in the catalog and in the item description. 
 Q2-There are two imagefields one in products/models.py line 82 and another in products/forms.py line 61.     image = models.ImageField(upload_to="products/", blank=True) /
