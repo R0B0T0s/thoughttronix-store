@@ -1,3 +1,6 @@
+## Product Reviews
+Q4- The AI wanted the user to hvae to leave a review and score, I decided that they could leave a scoore without a review, but not the other way around. Just wanted to add a bit of realism to this project. reviews/models.py line 40.
+
 ## ACCOUNT SECURITY CENTER
 Q1- Phase 5. This phase involved creating a seperate server to act as an email for password resetting. It required a file called .env, but Claude did not create .env. I havd to manually create and fill it so that the email server was operational. Before the server was operational, password reset emails were sent to the terminal. Because I did not receive an email in the terminal or the new server mailroom, I asked for a correction, and Claude gave me one. 
 Q4- I liked Phase 4. It allowed me to work with multiple windows open for the thoughttronix-store. It just makes sure that if you change your password, then any other active session with that same account will be automatically logged out. Verifing was easy, just needed to refresh the page. 
