@@ -28,6 +28,26 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-17 — Wishlist Phase 3: the wishlist page and navbar link (with Phases 1–2)
+
+### Prompts
+1. `/implement` @prd/wishlist.md @plans/wishlist.md implement phase <N>
+2. (Asked which phase, since `<N>` was never filled in. Answered "Phase 3 (Recommended)".)
+3. approved, go ahead (the three TDD behaviors: own items newest first, the "Unavailable" badge, and no N+1 queries)
+4. approved, go ahead (test 1)
+5. approved, go ahead (test 1 green; on to test 2)
+6. approved, go ahead (test 2)
+7. approved (test 2 green; on to test 3)
+8. approved (test 3)
+9. Continue
+10. The wishlist page is using a different font than the rest of the website, please fix this.
+11. manual verification passed, congratulations
+
+### Summary
+- **Outcome:** Added `wishlist:detail` at `/wishlist/`. It's a `LoginRequiredMixin` `TemplateView` that loads the signed-in user's items with `select_related("product__category")`; the category is needed because the placeholder image comes from it. `templates/wishlist/detail.html` extends `base.html` and wraps `templates/wishlist/partials/_list.html` in `#wishlist-items`, so Phase 4 can swap it. Each row shows the image (through `products/partials/_image.html`), the name linked to the detail page, the price, and an "Unavailable" badge for unavailable products. An empty wishlist shows a 💭 empty state with a "Browse the catalog" button. `base.html` has a plain "Wishlist" link for signed-in users between Addresses and Account. Three behaviors were built test-first, each test approved before code was written and shown failing on an assertion first: own items only, newest first; the badge only on unavailable products; and a query count that doesn't grow with the number of items (6 vs 9 queries before `select_related`). Six more tests cover the sign-in redirect, the row contents, a deleted product dropping off, the empty state, and the navbar link shown and hidden. That makes 42 wishlist tests; the full suite passed at 384 and ruff is clean. Manual browser verification passed. This commit also carries Phases 1–2 (the app, models, migration, add and remove endpoints, the detail-page button, and the `wishlist` fixture), which were already built but uncommitted when the session started.
+- **Deviations:** Took the recommended phase when asked. After green, every TDD step was approved without changes.
+- **Sideways:** `docs/TEMPLATES.md` says pages use Times New Roman, so I wrapped the wishlist page in `font-['Times_New_Roman',serif]`, copying the recall notices page. In the browser it stood out from every other page, which use the theme font. The user caught it, and I removed the wrapper. That doc line is still misleading and hasn't been changed. Tailwind's normal build reported "up to date" after new classes were added, so I ran a forced rebuild and confirmed `h-20`, `w-24`, and `shrink-0` were compiled. I didn't open the page in a browser myself; the user did.
+
 ## 2026-10-07 — Account security Phase 9: production hardening and a configurable admin URL
 
 ### Prompts

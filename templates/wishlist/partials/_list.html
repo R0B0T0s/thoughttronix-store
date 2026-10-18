@@ -1,0 +1,37 @@
+{% load humanize %}
+{# The wishlist's saved products, newest first — its own partial so the #}
+{# wishlist page's Remove can swap it whole into #wishlist-items. #}
+{% if items %}
+  <ul class="space-y-3">
+    {% for item in items %}
+      {% with product=item.product %}
+        <li class="flex items-center gap-4 rounded-box bg-base-100 p-3 shadow-md">
+          <a href="{{ product.get_absolute_url }}"
+             class="block h-20 w-24 shrink-0 overflow-hidden rounded-box">
+            {% include "products/partials/_image.html" with item=product alt=product.name classes="h-full w-full object-cover" %}
+          </a>
+          <div class="min-w-0 flex-1">
+            <a href="{{ product.get_absolute_url }}" class="link-hover font-semibold">
+              {{ product.name }}
+            </a>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <span class="text-primary">${{ product.price|intcomma }}</span>
+              {% if not product.is_available %}
+                <span class="badge badge-warning badge-outline">Unavailable</span>
+              {% endif %}
+            </div>
+          </div>
+        </li>
+      {% endwith %}
+    {% endfor %}
+  </ul>
+{% else %}
+  <div class="py-16 text-center">
+    <p class="text-5xl">💭</p>
+    <p class="mt-4 text-xl font-semibold">Your wishlist is empty</p>
+    <p class="mt-2 opacity-70">Save the products you're thinking about — we'll keep them in mind.</p>
+    <a href="{% url 'products:catalog' %}" class="btn btn-primary btn-sm mt-6">
+      Browse the catalog
+    </a>
+  </div>
+{% endif %}

@@ -1,0 +1,23 @@
+{# The wishlist control, in all its states. Include with on_wishlist=<saved?>; #}
+{# the signed-in button is an HTMX swap that re-renders this partial. #}
+{% if not user.is_authenticated %}
+  {# Anonymous visitors are prompted to sign in — a plain link, no HTMX. #}
+  <a href="{% url 'accounts:login' %}?next={{ request.get_full_path|urlencode }}"
+     class="btn btn-outline btn-secondary btn-sm">
+    Add to wishlist
+  </a>
+{% elif on_wishlist %}
+  <button
+    hx-post="{% url 'wishlist:remove' product.pk %}"
+    hx-swap="outerHTML"
+    class="btn btn-secondary btn-sm">
+    On your wishlist — remove
+  </button>
+{% else %}
+  <button
+    hx-post="{% url 'wishlist:add' product.pk %}"
+    hx-swap="outerHTML"
+    class="btn btn-outline btn-secondary btn-sm">
+    Add to wishlist
+  </button>
+{% endif %}
