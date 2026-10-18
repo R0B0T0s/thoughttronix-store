@@ -1,10 +1,23 @@
-{# Read-only stars. Include with rating=<1–5, number or numeric string>; #}
-{# optional size= a DaisyUI rating size class (default rating-sm). #}
+{# Stars, via DaisyUI's rating component. Include with rating=<1–5, number #}
+{# or numeric string>; optional size= a rating size class (default #}
+{# rating-sm). With name=<field name> the stars are radio inputs for a #}
+{# form, `rating` being the checked value; otherwise they're read-only. #}
 {% with current=rating|add:0 %}
-  <div class="rating {{ size|default:'rating-sm' }}" role="img" aria-label="{{ current }} out of 5 stars">
-    {% for star in "12345" %}
-      <div class="mask mask-star-2 bg-warning"
-           aria-hidden="true"{% if forloop.counter == current %} aria-current="true"{% endif %}></div>
-    {% endfor %}
-  </div>
+  {% if name %}
+    <div class="rating {{ size|default:'rating-sm' }}">
+      {% for star in "12345" %}
+        <input type="radio" name="{{ name }}" value="{{ forloop.counter }}"
+               class="mask mask-star-2 bg-warning"
+               aria-label="{{ forloop.counter }} star{{ forloop.counter|pluralize }}"
+               {% if forloop.counter == current %}checked{% endif %}>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="rating {{ size|default:'rating-sm' }}" role="img" aria-label="{{ current }} out of 5 stars">
+      {% for star in "12345" %}
+        <div class="mask mask-star-2 bg-warning"
+             aria-hidden="true"{% if forloop.counter == current %} aria-current="true"{% endif %}></div>
+      {% endfor %}
+    </div>
+  {% endif %}
 {% endwith %}

@@ -1,0 +1,19 @@
+{# One review's details — the body of a list card and of the pinned #}
+{# "Your review" box. Include with review=<Review>. #}
+<div class="flex flex-wrap items-center gap-2">
+  <span class="font-semibold">{{ review.reviewer_name }}</span>
+  <span class="badge badge-success badge-outline badge-sm">Verified purchase</span>
+</div>
+<div class="mt-2">
+  {% include "reviews/partials/_stars.html" with rating=review.rating %}
+</div>
+{% if review.comment %}
+  <p class="mt-2">{{ review.comment|linebreaksbr }}</p>
+{% endif %}
+<p class="mt-2 text-sm opacity-60">
+  {{ review.created_at|date:"F j, Y" }}
+  {% if review.was_edited %}(edited){% endif %}
+  {% if review.edited_by_staff %}
+    <span class="badge badge-ghost badge-sm ml-1">Edited by staff</span>
+  {% endif %}
+</p>

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from orders.models import OrderItem
 from products.models import Product
 
 # How long after posting a save still counts as part of posting.
@@ -58,6 +59,16 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.rating}★ {self.product.name} by {self.user.username}"
+
+    @classmethod
+    def can_review(cls, user, product):
+        """Whether the user may post a review of the product: signed in,
+        has bought it, and hasn't reviewed it yet."""
+        return (
+            user.is_authenticated
+            and OrderItem.objects.purchased_by(user, product).exists()
+            and not cls.objects.filter(user=user, product=product).exists()
+        )
 
     @property
     def reviewer_name(self):

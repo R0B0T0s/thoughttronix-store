@@ -1,11 +1,15 @@
+import re
 from datetime import timedelta
 
 import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.db import IntegrityError
 from django.urls import reverse
 from django.utils import timezone
+
+from orders.models import Order, OrderItem
 
 from .models import Review
 
@@ -75,6 +79,18 @@ def test_reviews_come_newest_first(review, other_customer):
     )
 
     assert list(Review.objects.all()) == [newer, review]
+
+
+def test_can_review_only_a_signed_in_purchaser_who_has_not_reviewed(
+    customer, other_customer, purchased_product
+):
+    assert not Review.can_review(AnonymousUser(), purchased_product)
+    assert not Review.can_review(other_customer, purchased_product)
+    assert Review.can_review(customer, purchased_product)
+
+    Review.objects.create(user=customer, product=purchased_product, rating=5)
+
+    assert not Review.can_review(customer, purchased_product)
 
 
 def test_review_is_registered_in_the_admin():
@@ -200,6 +216,214 @@ def test_a_cancelled_order_does_not_count_as_a_purchase(
     response = detail(client, purchased_product)
 
     assert "Only customers who've purchased this product" in response.text
+
+
+# --- Posting a review ---------------------------------------------------------
+
+
+def create(client, product, **data):
+    return client.post(reverse("reviews:create", kwargs={"pk": product.pk}), data)
+
+
+@pytest.mark.parametrize("order_status", [None, "CANCELLED"])
+def test_a_non_purchaser_cannot_create_a_review(
+    client, customer, purchased_product, order_status
+):
+    # None: the customer never bought it; CANCELLED: their only order was cancelled.
+    if order_status is None:
+        customer.orders.all().delete()
+    else:
+        customer.orders.update(status=order_status)
+    client.force_login(customer)
+
+    response = create(client, purchased_product, rating=5, comment="Sneaky.")
+
+    assert response.status_code == 403
+    assert not Review.objects.exists()
+
+
+def test_a_second_create_keeps_one_review_and_shows_it(
+    client, customer, purchased_product
+):
+    client.force_login(customer)
+    create(client, purchased_product, rating=4, comment="First tab.")
+
+    response = create(client, purchased_product, rating=1, comment="Second tab.")
+
+    assert response.status_code == 200
+    review = Review.objects.get()
+    assert (review.rating, review.comment) == (4, "First tab.")
+    assert "First tab." in response.text
+    assert "Second tab." not in response.text
+
+
+def buy(user, product):
+    """Put the product on a placed order for the user."""
+    address = {
+        f"{kind}_{field}": value
+        for kind in ("shipping", "billing")
+        for field, value in [
+            ("name", "Pat Lee"),
+            ("street", "1 Synapse Way"),
+            ("city", "Canyon"),
+            ("state", "TX"),
+            ("zip", "79015"),
+        ]
+    }
+    order = Order.objects.create(
+        user=user,
+        total=product.price,
+        email="pat@example.com",
+        card_last4="4242",
+        **address,
+    )
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        product_name=product.name,
+        unit_price=product.price,
+        quantity=1,
+    )
+
+
+def test_create_is_post_only(client, customer, purchased_product):
+    client.force_login(customer)
+
+    response = client.get(
+        reverse("reviews:create", kwargs={"pk": purchased_product.pk})
+    )
+
+    assert response.status_code == 405
+
+
+def test_create_redirects_anonymous_visitors_to_sign_in(client, product):
+    response = create(client, product, rating=5)
+
+    assert response.status_code == 302
+    assert response.url.startswith(reverse("accounts:login"))
+    assert not Review.objects.exists()
+
+
+def test_create_404s_on_a_missing_product(client, customer):
+    client.force_login(customer)
+
+    response = client.post(reverse("reviews:create", kwargs={"pk": 999}), {})
+
+    assert response.status_code == 404
+
+
+def test_a_purchaser_posts_a_review_and_sees_it_pinned(
+    client, customer, other_customer, purchased_product
+):
+    Review.objects.create(
+        user=other_customer, product=purchased_product, rating=2, comment="Meh."
+    )
+    client.force_login(customer)
+
+    response = create(client, purchased_product, rating=5, comment="Love it.")
+
+    review = Review.objects.get(user=customer)
+    assert (review.rating, review.comment) == (5, "Love it.")
+    text = response.text
+    assert 'id="reviews"' in text
+    assert "<html" not in text
+    # Pinned in "Your review", above everyone else's reviews.
+    assert text.index("Your review") < text.index("Love it.") < text.index("Meh.")
+    assert "Post review" not in text
+    assert "3.5 out of 5" in text
+    assert "2 reviews" in text
+
+
+def test_the_comment_is_optional(client, customer, purchased_product):
+    client.force_login(customer)
+
+    create(client, purchased_product, rating=3)
+
+    assert Review.objects.get().comment == ""
+
+
+def test_a_purchaser_can_review_an_unavailable_product(
+    client, customer, unavailable_product
+):
+    buy(customer, unavailable_product)
+    client.force_login(customer)
+
+    create(client, unavailable_product, rating=4)
+
+    assert Review.objects.filter(product=unavailable_product).exists()
+
+
+@pytest.mark.parametrize(
+    "data, error",
+    [
+        ({"comment": "Forgot the stars."}, "Choose a star rating."),
+        ({"rating": 0, "comment": "Forgot the stars."}, "Select a valid choice."),
+        ({"rating": 6, "comment": "Forgot the stars."}, "Select a valid choice."),
+    ],
+)
+def test_the_rating_is_required_and_one_to_five(
+    client, customer, purchased_product, data, error
+):
+    client.force_login(customer)
+
+    response = create(client, purchased_product, **data)
+
+    assert response.status_code == 200
+    assert not Review.objects.exists()
+    assert error in response.text
+    assert "Forgot the stars." in response.text  # input preserved
+
+
+def test_a_too_long_comment_is_rejected_with_the_input_kept(
+    client, customer, purchased_product
+):
+    client.force_login(customer)
+
+    response = create(client, purchased_product, rating=4, comment="x" * 2001)
+
+    assert not Review.objects.exists()
+    assert "at most 2000 characters" in response.text
+    assert "x" * 2001 in response.text
+    assert re.search(r'value="4"[^>]*checked', response.text)  # stars kept too
+    assert not re.search(r'value="[1235]"[^>]*checked', response.text)
+
+
+def test_staff_follow_the_same_purchase_rule(client, staff_user, product):
+    client.force_login(staff_user)
+
+    assert create(client, product, rating=5).status_code == 403
+
+    buy(staff_user, product)
+    create(client, product, rating=5)
+
+    assert Review.objects.filter(user=staff_user).exists()
+
+
+def test_an_eligible_customer_sees_the_empty_form(client, customer, purchased_product):
+    client.force_login(customer)
+
+    response = detail(client, purchased_product)
+
+    create_url = reverse("reviews:create", kwargs={"pk": purchased_product.pk})
+    assert f'hx-post="{create_url}"' in response.text
+    assert 'name="rating"' in response.text
+    assert "Post review" in response.text
+    assert "Only customers who've purchased" not in response.text
+
+
+def test_the_section_view_renders_only_the_partial(client, review):
+    response = client.get(reverse("reviews:section", kwargs={"pk": review.product.pk}))
+
+    assert response.status_code == 200
+    assert 'id="reviews"' in response.text
+    assert "Hears me even when I whisper." in response.text
+    assert "<html" not in response.text
+
+
+def test_the_section_view_404s_on_a_missing_product(client, db):
+    response = client.get(reverse("reviews:section", kwargs={"pk": 999}))
+
+    assert response.status_code == 404
 
 
 def test_the_catalog_grid_is_unchanged(client, review):

@@ -1,6 +1,6 @@
 from django import template
 
-from orders.models import OrderItem
+from reviews.views import section_context
 
 register = template.Library()
 
@@ -12,12 +12,4 @@ def reviews_section(context, product):
     Lets the product detail page show reviews without the products app
     depending on the reviews app.
     """
-    user = context["user"]
-    return {
-        "product": product,
-        "user": user,
-        "summary": product.reviews.summary(),
-        "reviews": product.reviews.select_related("user"),
-        "purchased": user.is_authenticated
-        and OrderItem.objects.purchased_by(user, product).exists(),
-    }
+    return section_context(context["user"], product)

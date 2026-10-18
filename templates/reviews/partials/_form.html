@@ -1,0 +1,31 @@
+{# The author review form: star radios and an optional comment. Include #}
+{# with form=<AuthorReviewForm> and action=<URL it posts to>; the response #}
+{# replaces the whole Reviews section. #}
+<form hx-post="{{ action }}" hx-target="#reviews" hx-swap="outerHTML" class="space-y-4" novalidate>
+  {% for error in form.non_field_errors %}
+    <p class="text-sm text-error">{{ error }}</p>
+  {% endfor %}
+
+  <fieldset>
+    <legend class="mb-1 font-semibold">Rating</legend>
+    {% include "reviews/partials/_stars.html" with name=form.rating.html_name rating=form.rating.value|default:0 size="rating-lg" %}
+    {% for error in form.rating.errors %}
+      <p class="mt-1 text-sm text-error">{{ error }}</p>
+    {% endfor %}
+  </fieldset>
+
+  <div>
+    <label for="{{ form.comment.id_for_label }}" class="mb-1 block font-semibold">
+      Comment <span class="font-normal opacity-60">(optional)</span>
+    </label>
+    <textarea name="{{ form.comment.html_name }}" id="{{ form.comment.id_for_label }}"
+              rows="4"
+              class="textarea textarea-bordered w-full{% if form.comment.errors %} textarea-error{% endif %}"
+              placeholder="What did you think?">{{ form.comment.value|default:"" }}</textarea>
+    {% for error in form.comment.errors %}
+      <p class="mt-1 text-sm text-error">{{ error }}</p>
+    {% endfor %}
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-sm">Post review</button>
+</form>

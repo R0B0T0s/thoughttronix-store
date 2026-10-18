@@ -28,6 +28,24 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 2: post a review
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 2`
+2. Approved (the three TDD behaviors: `can_review`, non-purchasers can't create, a duplicate create keeps one review)
+3. Approved (`can_review` test)
+4. Approved (continue to the create view)
+5. Approved (non-purchaser test)
+6. Go ahead (duplicate-create behavior)
+7. I do approve (duplicate-create test)
+8. Go ahead (the rest of Phase 2)
+9. Manual conformation has passed
+
+### Summary
+- **Outcome:** Three behaviors were built test-first, each shown failing on an assertion and approved before being made to pass. (1) `Review.can_review(user, product)`: signed in, bought the product (through the Phase 1 `purchased_by` query), and not yet reviewed it. (2) `reviews:create` raises a 403 for a non-purchaser, including one whose only order is cancelled, and saves nothing. (3) A second create from the same user returns the section showing the existing review instead of an error. The view checks for an existing review before the purchase rule, and it also catches the unique constraint's `IntegrityError` inside `transaction.atomic()`, so even simultaneous requests can't produce an error or a duplicate. The rest was built and tested normally. `AuthorReviewForm` (a ModelForm whose rating is a required 1–5 radio choice with the message "Choose a star rating.", and whose comment is optional and limited to 2,000 characters by the model field) was added. So were `reviews/views.py`, with `section_context`/`render_section` shared by the inclusion tag and the views, `ReviewSectionView` (GET, anyone) and the POST-only, sign-in-required `CreateReviewView`, plus `reviews/urls.py` mounted at the root. The "Your review" box now has four states: sign-in link, own review pinned (and left out of the list below), HTMX empty form, and the purchasers-only note. Every response replaces `#reviews` whole. `_stars.html` gained a radio-input mode (via `name=`). Review details moved into a shared `_review.html` partial, and the form lives in `_form.html`. Products are looked up in the full set, so unavailable products can be reviewed. The reviews suite went from 26 to 41 tests; the full suite has 437 passing, and Ruff is clean. The user verified the phase manually in the browser.
+- **Deviations:** None. Every proposal was approved as made. The textarea deliberately has no `maxlength` attribute, so an over-long paste reaches the server and shows the length error instead of being silently truncated by the browser.
+- **Sideways:** Behavior 3's first run ended in a `PermissionDenied` traceback, which looked at first like a scaffolding error. It was really Django logging the exception behind an assertion failure (`403 == 200`), confirmed before the test was presented as RED. The first full-suite run went past the 2-minute foreground timeout and finished in the background (437 passed in about 2 minutes). Two assertions in the non-TDD tests were tightened before their first run: a vacuous `startswith(...) or ...` check, and a "checked" check that would have matched any star. `docs/ARCHITECTURE.md` doesn't cover the wishlist or reviews, so it wasn't updated. The untracked `.claude/skills/` folders were left alone.
+
 ## 2026-10-18 — Product reviews Phase 1: the read-only Reviews section
 
 ### Prompts
