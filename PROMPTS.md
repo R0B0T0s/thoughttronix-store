@@ -28,6 +28,49 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 1: the read-only Reviews section
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 1`
+2. Approved (the three TDD behaviors: the purchase query, the rating summary, `was_edited`)
+3. Pass it (purchase query test)
+4. Move on to the rating summary
+5. Pass it (rating summary test)
+6. Go for it (`was_edited`)
+7. Approved (`was_edited` test, with the one-minute cut-off)
+8. Build the rest of Phase 1
+9. Manual verification passed
+
+### Summary
+- **Outcome:** Three behaviors were built test-first, each shown failing on an assertion and approved before being made to pass. (1) `OrderItem.objects.purchased_by(user, product)` in `orders`: the user's lines for the product on any order that isn't cancelled. (2) `Review.objects.summary()`: the average to one decimal plus the count, computed by one aggregate query, with `None`/`0` for no reviews. (3) `Review.was_edited`: true when the review was updated more than one minute after it was created. The rest was built and tested normally. A new `reviews` app was added to `INSTALLED_APPS`. Its `Review` model has CASCADE FKs to user and product, a unique (user, product) constraint, a 1–5 rating check constraint, newest-first ordering, a `created_at` default that the seed can backdate, and `reviewer_name` (first name + last initial, falling back to the first name alone, then the username). Migration `reviews/0001_initial` was added, and `Review` is registered in the admin. The product detail page renders the section through a `{% reviews_section product %}` inclusion tag, so `products` doesn't depend on `reviews`. The section shows the summary or "No reviews yet — be the first", a "Your review" box (a sign-in link with `next` back to the product, or the purchasers-only note), and every review with name, "Verified purchase" badge, read-only DaisyUI stars from a reusable `_stars.html` partial, comment, date, and "(edited)" / "Edited by staff" markers. New shared fixtures `purchased_product` and `review` were added to `conftest.py` and listed in `docs/TESTING.md`. Added 26 tests. Full suite at 419 passed, Ruff clean, `makemigrations --check` clean. The user verified the phase manually in the browser, with reviews added through the admin.
+- **Deviations:** None. Every proposal was approved as made, including the one-minute grace period for "(edited)". In the summary I pointed out that floats round half-to-even (4.25 → 4.2), and in the purchase query that excluding cancelled orders means any future order status counts as a purchase. Both were left as built. A signed-in purchaser sees no "Your review" box in this phase, since the form arrives in Phase 2. I flagged this at manual verification, and it raised no objection.
+- **Sideways:** Two new page tests first failed because they expected the apostrophe in "who've" to be escaped as `&#x27;`. Django escapes only variables, not literal template text, so the expected string was corrected (a mechanical fix to the tests, not a change to what they assert). `tailwind build` first reported the stylesheet "up to date" after the new templates were added; a `--force` rebuild confirmed `.rating` and `mask-star-2` are compiled. The earlier uncommitted `PROMPTS.md` entries, the PRD and the plan are included in this commit. The untracked `.claude/skills/` folders were left alone.
+
+## 2026-10-18 — Product reviews: implementation plan (no code yet)
+
+### Prompts
+1. `/prd-to-plan @prd/reviews.md`
+2. I approve
+3. Update PROMPTS.md.
+
+### Summary
+- **Outcome:** Read the reviews PRD, the wishlist plan (as the format to follow), the `Order`/`OrderItem` models, the root and product/wishlist URL confs, and the shared `conftest.py` fixtures. Proposed the decisions that apply to every phase: a new `reviews` app mounted at the root; `reviews:section`, `reviews:create`, `reviews:edit` (GET form / POST save) and `reviews:delete`, all keyed by product or review pk; the `Review` model with its constraints; the purchase rule as an `OrderItem` queryset method; and one HTMX swap target for the whole section. Also proposed six phases: (1) the read-only Reviews section with model, admin, and display; (2) posting a review; (3) author edit and cancel; (4) delete; (5) staff moderation edit; (6) seed data and `PROMPTS.md`. The breakdown was approved unchanged and written to `plans/reviews.md`. No application code was changed and nothing was committed.
+- **Deviations:** None. I asked three questions (split Phase 1? merge delete with staff edit? product pk rather than slug in URLs?), and the user approved the breakdown as proposed without answering them individually, so the defaults stand: Phase 1 is not split, delete and staff edit remain separate phases, and URLs use pks.
+- **Sideways:** Nothing went wrong. Phase 1 is the heaviest slice because it covers everything a shopper sees before any write path exists; that trade-off was flagged in the proposal. The untracked `.claude/skills/implement/` and `.claude/skills/ttd/` folders and the earlier uncommitted `PROMPTS.md` entry were left as they were.
+
+## 2026-10-18 — Product reviews: grill interview and PRD (no code yet)
+
+### Prompts
+1. `/grill-me` Create a product review system. Customers should be able to leave only one review per product. Each review is a written comment and a rating. Customers can edit and delete only their reviews. Customers can only leave a review for a product that they have purchased. Staff can edit and delete any review. When creating, editing, or deleting a review should update the website smoothly without needing to reload the page or cause the customer to lose their place.
+2. (Interactive `/grill-me` interview: fifteen design questions answered one at a time, covering what counts as purchased (any non-cancelled order), what a later cancellation does (nothing; checked only at creation), rating and comment (1–5 whole stars, comment optional), where ratings show (detail page only), where staff moderate (in place on the product page, plus the Django admin), what the HTMX swap redraws (the whole reviews section), editing layout (pinned "Your review" box, edit in place), delete confirmation (`hx-confirm`), what non-eligible visitors see (a message for each case), staff edit scope (comment only, marked "Edited by staff"), edit markers (an author edit clears the staff marker; author edits show "(edited)"), reviewer name (first name + last initial, falling back to username), pagination (none), seed data (a realistic spread, each review backed by a real order), and where the purchase check lives (an `orders` queryset method, no service module).)
+3. `/to-prd`
+4. Update prompts.md with a standard prompt
+
+### Summary
+- **Outcome:** Before the interview, read `docs/ARCHITECTURE.md`, `docs/TEMPLATES.md`, the wishlist PRD, the `Order`/`OrderItem` models, the product detail view and template, and the back-office shell. That settled several points from the code instead of asking: HTMX is the way to update in place, roles are `is_staff`, purchases can be checked through `OrderItem`, the detail page shows unavailable products, and in-place deletes elsewhere have no confirmation. The interview produced a 15-point design, and `/to-prd` turned it into `prd/reviews.md`. It has 41 user stories, the design decisions, what's out of scope, and a list of what the tests should cover. No application code was changed, nothing was committed, and the PRD is untracked.
+- **Deviations:** Question 3 overrode my recommendation of a required comment; the comment is optional. This also departs from the original request ("each review is a written comment and a rating"), and the PRD records it as a deliberate choice. Every other question took the recommended option. No follow-up questions were asked during the interview.
+- **Sideways:** The answer to Question 1 was "1" rather than an option letter; I read it as the first option (A, any non-cancelled order) and said so in my next reply. The PRD includes four details the user never voted on, taken from existing project patterns: a double-submit shows the existing review instead of an error, an unauthorized signed-in user gets a 403 while anonymous users are sent to sign in, an invalid form redraws with errors and keeps the input, and staff reviewing their own purchase get the full author form. I flagged all four in my reply so they can be changed. Prompt 4 asked for "a standard prompt"; I took that to mean the standard session-log entry described at the top of this file. The untracked `.claude/skills/implement/` and `.claude/skills/ttd/` folders existed before this session and were left alone.
+
 ## 2026-10-18 — Wishlist Phase 5: seed the demo wishlist (feature complete)
 
 ### Prompts

@@ -150,6 +150,15 @@ class Order(models.Model):
         return self.total + self.discount_amount
 
 
+class OrderItemQuerySet(models.QuerySet):
+    def purchased_by(self, user, product):
+        """The user's order lines for the product on orders that still
+        count as a purchase — any status but cancelled."""
+        return self.filter(order__user=user, product=product).exclude(
+            order__status=Order.Status.CANCELLED
+        )
+
+
 class OrderItem(models.Model):
     """One line of an order, priced as of purchase time.
 
@@ -163,6 +172,8 @@ class OrderItem(models.Model):
     product_name = models.CharField(max_length=200)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField()
+
+    objects = OrderItemQuerySet.as_manager()
 
     class Meta:
         ordering = ["pk"]

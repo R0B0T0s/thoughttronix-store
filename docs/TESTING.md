@@ -6,7 +6,9 @@ Read this before writing or changing tests.
 - Test files are named `tests.py` or `test_*.py` inside each app.
 - Shared fixtures live in the project-level `conftest.py` — plain fixtures,
   no factory-boy. Available: `customer`, `staff_user`, `category`, `product`,
-  `unavailable_product`, `tag`, `cart`, `cart_item`, `coupon`, `address`.
+  `unavailable_product`, `tag`, `cart`, `cart_item`, `coupon`, `address`,
+  `purchased_product` (the `product`, on a placed order by `customer`), and
+  `review` (`customer`'s review of `purchased_product`).
 - An autouse `media_root` fixture points `MEDIA_ROOT` at a temp folder, so
   image tests never touch the real `media/`.
 - An autouse `clear_cache` fixture empties Django's cache before and after

@@ -14,8 +14,9 @@ from django.utils import timezone
 
 from accounts.models import Address
 from coupons.models import Coupon
-from orders.models import Cart, CartItem
+from orders.models import Cart, CartItem, Order, OrderItem
 from products.models import Category, Product, Tag
+from reviews.models import Review
 from wishlist.models import Wishlist
 
 
@@ -87,6 +88,46 @@ def unavailable_product(category):
         price=Decimal("139.00"),
         is_available=False,
         category=category,
+    )
+
+
+@pytest.fixture
+def purchased_product(customer, product):
+    """The product, bought by the customer on a placed order."""
+    order = Order.objects.create(
+        user=customer,
+        total=product.price,
+        email="casey@example.com",
+        shipping_name="Casey Monroe",
+        shipping_street="12 Cortex Lane",
+        shipping_city="Canyon",
+        shipping_state="TX",
+        shipping_zip="79015",
+        billing_name="Casey Monroe",
+        billing_street="12 Cortex Lane",
+        billing_city="Canyon",
+        billing_state="TX",
+        billing_zip="79015",
+        card_last4="4242",
+    )
+    OrderItem.objects.create(
+        order=order,
+        product=product,
+        product_name=product.name,
+        unit_price=product.price,
+        quantity=1,
+    )
+    return product
+
+
+@pytest.fixture
+def review(customer, purchased_product):
+    """The customer's review of the product they bought."""
+    return Review.objects.create(
+        user=customer,
+        product=purchased_product,
+        rating=4,
+        comment="Hears me even when I whisper.",
     )
 
 

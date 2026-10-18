@@ -1,0 +1,10 @@
+{# Read-only stars. Include with rating=<1–5, number or numeric string>; #}
+{# optional size= a DaisyUI rating size class (default rating-sm). #}
+{% with current=rating|add:0 %}
+  <div class="rating {{ size|default:'rating-sm' }}" role="img" aria-label="{{ current }} out of 5 stars">
+    {% for star in "12345" %}
+      <div class="mask mask-star-2 bg-warning"
+           aria-hidden="true"{% if forloop.counter == current %} aria-current="true"{% endif %}></div>
+    {% endfor %}
+  </div>
+{% endwith %}

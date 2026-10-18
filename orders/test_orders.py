@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import CartItem, Order
+from .models import CartItem, Order, OrderItem
 from .services import place_order
 from .test_checkout_form import VALID_DATA
 
@@ -56,6 +56,28 @@ def test_orders_come_most_recent_first(customer, order):
 
 def test_order_item_str(order):
     assert str(order.items.get()) == "2 × Seraphine Home Hub"
+
+
+@pytest.mark.parametrize(
+    ("status", "purchased"),
+    [
+        (Order.Status.PLACED, True),
+        (Order.Status.SHIPPED, True),
+        (Order.Status.DELIVERED, True),
+        (Order.Status.CANCELLED, False),
+    ],
+)
+def test_purchased_by_counts_only_the_users_non_cancelled_orders(
+    customer, staff_user, purchased_product, unavailable_product, status, purchased
+):
+    Order.objects.filter(user=customer).update(status=status)
+
+    assert OrderItem.objects.purchased_by(customer, purchased_product).exists() is (
+        purchased
+    )
+    # Another user's order never counts, and neither does a product never ordered.
+    assert not OrderItem.objects.purchased_by(staff_user, purchased_product).exists()
+    assert not OrderItem.objects.purchased_by(customer, unavailable_product).exists()
 
 
 # --- The checkout page -------------------------------------------------------
