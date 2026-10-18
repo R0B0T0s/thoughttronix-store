@@ -5,6 +5,7 @@ import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.management import call_command
 from django.db import IntegrityError
 from django.urls import reverse
 from django.utils import timezone
@@ -773,3 +774,57 @@ def test_the_catalog_grid_is_unchanged(client, review):
 
     assert "Verified purchase" not in response.text
     assert "out of 5" not in response.text
+
+
+# --- The seed command -----------------------------------------------------------
+
+
+def test_seed_creates_a_realistic_spread_of_reviews(db):
+    call_command("seed")
+
+    reviews = Review.objects.all()
+    assert reviews.count() >= 10
+    assert reviews.values("user").distinct().count() >= 5
+    assert reviews.values("product").distinct().count() >= 5
+    assert set(reviews.values_list("rating", flat=True)) == {1, 2, 3, 4, 5}
+    assert reviews.filter(comment="").exists()
+    assert reviews.exclude(comment="").exists()
+    assert reviews.filter(edited_by_staff=True).count() == 1
+    assert any(review.was_edited for review in reviews.filter(edited_by_staff=False))
+    # Backdating must not make every review read "(edited)".
+    assert sum(review.was_edited for review in reviews) == 2
+
+
+def test_every_seeded_review_is_backed_by_a_purchase(db):
+    call_command("seed")
+
+    for review in Review.objects.select_related("user", "product"):
+        purchases = OrderItem.objects.purchased_by(review.user, review.product)
+        assert purchases.filter(order__created_at__lte=review.created_at).exists(), (
+            review
+        )
+
+
+def test_seeded_customer_has_one_review_and_a_product_left_to_review(db):
+    call_command("seed")
+
+    customer = get_user_model().objects.get(username="customer")
+    assert customer.reviews.count() == 1
+    purchased = {
+        item.product
+        for item in OrderItem.objects.filter(order__user=customer).exclude(
+            order__status=Order.Status.CANCELLED
+        )
+    }
+    assert any(Review.can_review(customer, product) for product in purchased)
+
+
+def test_reseeding_rebuilds_the_same_reviews(db):
+    call_command("seed")
+    fields = ("user__username", "product__slug", "rating", "comment")
+    first = sorted(Review.objects.values_list(*fields, "edited_by_staff"))
+
+    call_command("seed")
+    second = sorted(Review.objects.values_list(*fields, "edited_by_staff"))
+
+    assert first == second

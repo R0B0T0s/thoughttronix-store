@@ -28,6 +28,18 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 6: seed the demo reviews (feature complete)
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 6`
+2. Go ahead (no TDD candidates, since the phase is seed data; approve the seed plan)
+3. It passes (manual verification passed)
+
+### Summary
+- **Outcome:** `seed` now wipes reviews and builds 17 demo reviews from a new `DEMO_REVIEWS` list: 11 reviewers across 9 products, every rating from 1 to 5, 5 reviews with no comment, exactly one "Edited by staff" (Tobi O. on Veil), and one author-edited "(edited)" review (Beverly C. on MindSync). Each review is looked up against `OrderItem.objects.purchased_by` and dated a few days after the earliest qualifying order. A review with no non-cancelled purchase behind it stops the seed with a `CommandError`. Both timestamps are set with a queryset `update()`, because `updated_at` is `auto_now` and a backdated save would otherwise mark every review "(edited)". `customer` has reviewed MindSync and has SyncRest, DreamWeaver, and others still to review. The seed summary reports the review count, and the README logins table mentions the review. Added 4 seed tests to `reviews/tests.py` (spread and markers, every review backed by an earlier purchase, `customer`'s one review plus a reviewable product, and reseeding being identical). The full suite passed (467), Ruff is clean, two consecutive seeds gave the same 17 reviews, and the user verified the phase manually in the browser.
+- **Deviations:** None. The plan was approved as proposed.
+- **Sideways:** The background orders are random (seeded), so I first ran the seed and listed each product's non-cancelled purchasers, then wrote the background reviews against that list. If the order generator changes, the seed fails loudly instead of writing an unbacked review. My first purchaser query, piped into `manage.py shell` over stdin, failed with a syntax error from the interactive console, and I re-ran it with `shell -c`. `pytest -n auto` isn't available (no xdist), so the suite ran serially. The untracked `.claude/skills/` folders were left alone.
+
 ## 2026-10-18 — Product reviews Phase 5: staff moderation edit
 
 ### Prompts

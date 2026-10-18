@@ -9,7 +9,7 @@ Demo logins (documented in the README):
     admin / admin123        superuser
     employee / employee123  staff, "Junior Thought Curator"
     customer / customer123  a plain customer, with order history, a live cart,
-                            and a wishlist
+                            a wishlist, and one product review
 """
 
 import random
@@ -21,7 +21,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.core.files.storage import default_storage
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
@@ -30,6 +30,7 @@ from coupons.models import Coupon
 from orders.models import Cart, Order, OrderItem
 from products.images import validate_product_image
 from products.models import Category, Product, Tag
+from reviews.models import Review
 from wishlist.models import Wishlist
 
 TAGS = [
@@ -531,6 +532,122 @@ SEED_ADDRESSES = [
 
 CARD_LAST4S = ["4242", "4111", "1881", "0005"]
 
+# Demo reviews: (username, product slug, rating, comment, days after the
+# purchase it was posted, edit state). Each one must be backed by a
+# non-cancelled seeded order for that user and product — the seed refuses
+# to write a review the feature itself would refuse. The edit state is None,
+# "author" (shows "(edited)"), or "staff" (shows "Edited by staff").
+# 'customer' reviews MindSync and leaves SyncRest, DreamWeaver, and the rest
+# unreviewed, so the demo shows both the "Your review" box and the empty form.
+DEMO_REVIEWS = [
+    (
+        "customer",
+        "mindsync",
+        5,
+        "Installation took eleven minutes and I haven't had an unsynchronized "
+        "thought since. My calendar now books itself before I want things.",
+        3,
+        None,
+    ),
+    (
+        "bcrane",
+        "mindsync",
+        4,
+        "Life-changing. Docking one star because it finishes my sentences "
+        "out loud during meetings.",
+        12,
+        "author",
+    ),
+    ("dcole", "mindsync", 5, "", 6, None),
+    (
+        "snakamura",
+        "mindsync",
+        2,
+        "Works as described, which is the problem.",
+        20,
+        None,
+    ),
+    (
+        "mwren",
+        "veil",
+        5,
+        "Ninety seconds is generous. I was out in forty.",
+        2,
+        None,
+    ),
+    ("gfinch", "veil", 4, "", 5, None),
+    (
+        "tokafor",
+        "veil",
+        1,
+        "Slept beautifully. Woke up in a different time zone. Nobody can "
+        "explain the [removed] receipts.",
+        9,
+        "staff",
+    ),
+    (
+        "bcrane",
+        "seraphine-doorbell",
+        3,
+        "It announced my sister's mood before she reached the porch. Accurate, "
+        "but she has stopped visiting.",
+        7,
+        None,
+    ),
+    ("snakamura", "seraphine-doorbell", 5, "", 4, None),
+    (
+        "dcole",
+        "recallpro",
+        4,
+        "I remember everything now, including my login for this site. Mostly "
+        "a blessing.",
+        14,
+        None,
+    ),
+    (
+        "mwren",
+        "recallpro",
+        2,
+        "I can never forget the finale of a show I hated. Please add a delete button.",
+        30,
+        None,
+    ),
+    ("hpark", "focusband-workplace-edition", 3, "", 10, None),
+    (
+        "lvasquez",
+        "focusband-workplace-edition",
+        1,
+        "My manager loves the attention metrics. I do not.",
+        3,
+        None,
+    ),
+    (
+        "dcole",
+        "dreamweaver",
+        5,
+        "Finally, dreams that are on brand.",
+        8,
+        None,
+    ),
+    (
+        "tokafor",
+        "calm-collar",
+        4,
+        "Our four-year-old is calmer than any of us. Slightly unsettling.",
+        15,
+        None,
+    ),
+    ("rmalik", "hush", 5, "", 6, None),
+    (
+        "lvasquez",
+        "seraphine-gen-1",
+        3,
+        "Sweet, a little slow. She keeps asking about a family named Henderson.",
+        21,
+        None,
+    ),
+]
+
 # Demo coupons: (code, discount_type, discount_value, product slugs,
 # days from now the window starts, days from now it ends).
 DEMO_COUPONS = [
@@ -561,6 +678,7 @@ class Command(BaseCommand):
         self._create_customer_wishlist()
         self._create_orders()
         self._create_coupons()
+        self._create_reviews()
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -571,6 +689,7 @@ class Command(BaseCommand):
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
+                f"{Review.objects.count()} reviews, "
                 f"and a live cart and a {len(CUSTOMER_WISHLIST)}-item wishlist "
                 f"for 'customer'."
             )
@@ -578,6 +697,7 @@ class Command(BaseCommand):
 
     def _wipe(self):
         """Remove everything the seed owns; the rebuild starts from zero."""
+        Review.objects.all().delete()
         Order.objects.all().delete()
         Cart.objects.all().delete()
         Wishlist.objects.all().delete()
@@ -800,3 +920,41 @@ class Command(BaseCommand):
             )
             if slugs:
                 coupon.products.set(Product.objects.filter(slug__in=slugs))
+
+    def _create_reviews(self):
+        """The DEMO_REVIEWS, each posted some days after the purchase that
+        backs it. Both timestamps are set directly: saving would stamp
+        updated_at with today and mark every backdated review "(edited)"."""
+        User = get_user_model()
+        now = timezone.now()
+        for username, slug, rating, comment, days_after, edit in DEMO_REVIEWS:
+            user = User.objects.get(username=username)
+            product = Product.objects.get(slug=slug)
+            purchase = (
+                OrderItem.objects.purchased_by(user, product)
+                .order_by("order__created_at")
+                .first()
+            )
+            if purchase is None:
+                raise CommandError(
+                    f"Demo review of {slug} by {username} has no purchase behind it."
+                )
+            created_at = min(
+                purchase.order.created_at + timedelta(days=days_after),
+                now - timedelta(hours=2),
+            )
+            updated_at = (
+                min(created_at + timedelta(days=2), now - timedelta(hours=1))
+                if edit
+                else created_at
+            )
+            review = Review.objects.create(
+                user=user,
+                product=product,
+                rating=rating,
+                comment=comment,
+                edited_by_staff=edit == "staff",
+            )
+            Review.objects.filter(pk=review.pk).update(
+                created_at=created_at, updated_at=updated_at
+            )
