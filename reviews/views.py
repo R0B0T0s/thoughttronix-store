@@ -110,3 +110,15 @@ class EditReviewView(LoginRequiredMixin, View):
             return render_section(request, review.product, form, editing=review)
         review.author_edit(form.cleaned_data["rating"], form.cleaned_data["comment"])
         return render_section(request, review.product)
+
+
+class DeleteReviewView(LoginRequiredMixin, View):
+    """HTMX: delete a review — its author or any staff member — and return
+    the section. For the author, the empty form comes back."""
+
+    def post(self, request, pk):
+        review = get_object_or_404(Review, pk=pk)
+        if not review.can_change(request.user):
+            raise PermissionDenied
+        review.delete()
+        return render_section(request, review.product)

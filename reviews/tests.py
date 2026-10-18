@@ -563,6 +563,99 @@ def test_only_the_author_sees_the_edit_button(client, review, other_customer):
     assert f'hx-get="{edit_url}"' not in detail(client, review.product).text
 
 
+# --- Deleting a review ---------------------------------------------------------
+
+
+def delete(client, review):
+    return client.post(reverse("reviews:delete", kwargs={"pk": review.pk}))
+
+
+def test_the_author_deletes_their_review_and_gets_the_empty_form_back(client, review):
+    client.force_login(review.user)
+
+    response = delete(client, review)
+
+    assert not Review.objects.filter(pk=review.pk).exists()
+    assert response.status_code == 200
+    assert "<html" not in response.text
+    assert "Hears me even when I whisper." not in response.text
+    assert "No reviews yet — be the first." in response.text
+    create_url = reverse("reviews:create", kwargs={"pk": review.product.pk})
+    assert f'hx-post="{create_url}"' in response.text
+    assert "Post review" in response.text
+
+
+def test_another_customer_cannot_delete_a_review(client, review, other_customer):
+    client.force_login(other_customer)
+
+    response = delete(client, review)
+
+    assert response.status_code == 403
+    assert Review.objects.filter(pk=review.pk).exists()
+
+
+def test_staff_can_delete_any_review(client, review, other_customer, staff_user):
+    Review.objects.create(user=other_customer, product=review.product, rating=2)
+    client.force_login(staff_user)
+
+    response = delete(client, review)
+
+    assert response.status_code == 200
+    assert not Review.objects.filter(pk=review.pk).exists()
+    assert "Hears me even when I whisper." not in response.text
+    assert "2.0 out of 5" in response.text
+    assert "1 review<" in response.text
+
+
+def test_delete_is_post_only(client, review):
+    client.force_login(review.user)
+
+    response = client.get(reverse("reviews:delete", kwargs={"pk": review.pk}))
+
+    assert response.status_code == 405
+    assert Review.objects.filter(pk=review.pk).exists()
+
+
+def test_delete_redirects_anonymous_visitors_to_sign_in(client, review):
+    response = delete(client, review)
+
+    assert response.status_code == 302
+    assert response.url.startswith(reverse("accounts:login"))
+    assert Review.objects.filter(pk=review.pk).exists()
+
+
+def test_delete_404s_on_a_missing_review(client, customer):
+    client.force_login(customer)
+
+    response = client.post(reverse("reviews:delete", kwargs={"pk": 999}))
+
+    assert response.status_code == 404
+
+
+def test_delete_buttons_show_only_to_those_allowed_and_ask_first(
+    client, review, other_customer, staff_user
+):
+    other_review = Review.objects.create(
+        user=other_customer, product=review.product, rating=2
+    )
+    button = 'hx-post="{}"[^>]*hx-confirm="Delete this review\\?"'
+
+    def delete_buttons(user):
+        client.force_login(user)
+        text = detail(client, review.product).text
+        return {
+            r.pk
+            for r in (review, other_review)
+            if re.search(
+                button.format(reverse("reviews:delete", kwargs={"pk": r.pk})), text
+            )
+        }
+
+    assert delete_buttons(review.user) == {review.pk}
+    assert delete_buttons(other_customer) == {other_review.pk}
+    assert delete_buttons(staff_user) == {review.pk, other_review.pk}
+
+
 def test_the_catalog_grid_is_unchanged(client, review):
     response = client.get(reverse("products:catalog"))
 

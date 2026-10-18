@@ -16,4 +16,5 @@ urlpatterns = [
         name="create",
     ),
     path("reviews/<int:pk>/edit/", views.EditReviewView.as_view(), name="edit"),
+    path("reviews/<int:pk>/delete/", views.DeleteReviewView.as_view(), name="delete"),
 ]

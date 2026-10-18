@@ -26,7 +26,7 @@
         {% url 'reviews:section' product.pk as section_url %}
         {% include "reviews/partials/_form.html" with action=edit_url cancel_url=section_url submit_label="Save changes" %}
       {% elif own_review %}
-        {% include "reviews/partials/_review.html" with review=own_review can_edit=True %}
+        {% include "reviews/partials/_review.html" with review=own_review can_edit=True can_delete=True %}
       {% elif form %}
         {% url 'reviews:create' product.pk as create_url %}
         {% include "reviews/partials/_form.html" with action=create_url %}
@@ -40,7 +40,9 @@
     <ul class="mt-6 space-y-4">
       {% for review in reviews %}
         <li class="rounded-box bg-base-100 p-4 shadow-md">
-          {% include "reviews/partials/_review.html" %}
+          {# Never the user's own review (that's pinned above), so only #}
+          {# staff may change these. #}
+          {% include "reviews/partials/_review.html" with can_delete=user.is_staff %}
         </li>
       {% endfor %}
     </ul>

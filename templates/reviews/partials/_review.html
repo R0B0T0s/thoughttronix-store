@@ -1,6 +1,7 @@
 {# One review's details — the body of a list card and of the pinned #}
 {# "Your review" box. Include with review=<Review>; can_edit=True adds an #}
-{# Edit button that swaps the section to the in-place edit form. #}
+{# Edit button that swaps the section to the in-place edit form, and #}
+{# can_delete=True a Delete button that asks first, then redraws it. #}
 <div class="flex flex-wrap items-center gap-2">
   <span class="font-semibold">{{ review.reviewer_name }}</span>
   <span class="badge badge-success badge-outline badge-sm">Verified purchase</span>
@@ -18,11 +19,20 @@
     <span class="badge badge-ghost badge-sm ml-1">Edited by staff</span>
   {% endif %}
 </p>
-{% if can_edit %}
-  <div class="mt-3">
-    <button type="button" class="btn btn-outline btn-sm"
-            hx-get="{% url 'reviews:edit' review.pk %}" hx-target="#reviews" hx-swap="outerHTML">
-      Edit
-    </button>
+{% if can_edit or can_delete %}
+  <div class="mt-3 flex gap-2">
+    {% if can_edit %}
+      <button type="button" class="btn btn-outline btn-sm"
+              hx-get="{% url 'reviews:edit' review.pk %}" hx-target="#reviews" hx-swap="outerHTML">
+        Edit
+      </button>
+    {% endif %}
+    {% if can_delete %}
+      <button type="button" class="btn btn-outline btn-error btn-sm"
+              hx-post="{% url 'reviews:delete' review.pk %}" hx-confirm="Delete this review?"
+              hx-target="#reviews" hx-swap="outerHTML">
+        Delete
+      </button>
+    {% endif %}
   </div>
 {% endif %}

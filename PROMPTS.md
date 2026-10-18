@@ -28,6 +28,24 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 4: delete a review
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 4`
+2. approved, go ahead (the three TDD behaviors: the author deletes and gets the empty form back, another customer gets 403, Delete buttons show only to those allowed and ask first)
+3. approved, make it pass (author-delete test)
+4. yes, move on to behavior 2
+5. approved, make it pass (403 test)
+6. yes, move on to behavior 3
+7. approved, make it pass (Delete-button test)
+8. Go ahead (the rest of Phase 4)
+9. manual verification passed
+
+### Summary
+- **Outcome:** Three behaviors were built test-first, each shown failing on an assertion and approved before being made to pass. (1) POST `reviews:delete` removes the author's review and returns the section with the empty "Post review" form and the "No reviews yet" summary. (2) Another signed-in customer gets 403 and the review survives; the view reuses `Review.can_change(user)`, so any staff member may delete too. (3) Delete buttons, each with `hx-confirm="Delete this review?"`, render on the pinned "Your review" for its author and on every listed review for staff, and nowhere for other customers. `_review.html` gained an optional `can_delete`; the list passes `user.is_staff`, since the user's own review is always pinned, never listed. Staff deleting any review (summary updates), POST-only (405), anonymous redirect to sign-in, and the 404 were tested normally. The reviews suite went from 54 to 61 tests; the full suite has 457 passing, and Ruff is clean. The user verified the phase manually in the browser.
+- **Deviations:** None. Every proposal was approved as made.
+- **Sideways:** The first behavior's code briefly let any signed-in user delete any review; I flagged that when it went green, and behavior 2's test closed it. The template's staff check repeats the rule in `can_change` instead of calling it, because templates can't pass an argument; I pointed this out, and the server-side check is the real guard. The full-suite run went past the 2-minute foreground timeout and finished in the background (457 passed in about 2 minutes). `ruff format` reflowed `reviews/urls.py`. The untracked `.claude/skills/` folders were left alone.
+
 ## 2026-10-18 — Product reviews Phase 3: author edit and cancel
 
 ### Prompts
