@@ -5,6 +5,7 @@ from http import HTTPStatus
 import pytest
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import IntegrityError, connection
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
@@ -537,3 +538,30 @@ def test_page_rows_have_a_remove_button_targeting_the_list(
     assert f'hx-post="{reverse("wishlist:remove_item", args=[product.pk])}"' in page
     assert 'hx-target="#wishlist-items"' in page
     assert 'id="wishlist-items"' in page
+
+
+# --- The seed command --------------------------------------------------------
+
+
+def test_seed_gives_customer_a_wishlist_with_an_unavailable_product(db):
+    call_command("seed")
+
+    customer = get_user_model().objects.get(username="customer")
+    products = [item.product for item in Wishlist.for_user(customer).items.all()]
+    assert 2 <= len(products) <= 3
+    assert any(not product.is_available for product in products)
+
+
+def test_reseeding_rebuilds_the_same_wishlist(db):
+    call_command("seed")
+    first = list(
+        WishlistItem.objects.values_list("wishlist__user__username", "product__slug")
+    )
+
+    call_command("seed")
+    second = list(
+        WishlistItem.objects.values_list("wishlist__user__username", "product__slug")
+    )
+
+    assert first == second
+    assert Wishlist.objects.count() == 1

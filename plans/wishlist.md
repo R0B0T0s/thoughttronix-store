@@ -180,7 +180,7 @@ Append this feature's AI-usage entries to `PROMPTS.md`.
 
 ### Acceptance criteria
 
-- [ ] After `seed`, `customer` has 2–3 wishlist items, at least one of them an unavailable product.
-- [ ] Running `seed` twice produces the same wishlist with no duplicates or errors.
-- [ ] `PROMPTS.md` has this feature's entries appended.
-- [ ] The suite is green and Ruff is clean.
+- [x] After `seed`, `customer` has 2–3 wishlist items, at least one of them an unavailable product.
+- [x] Running `seed` twice produces the same wishlist with no duplicates or errors.
+- [x] `PROMPTS.md` has this feature's entries appended.
+- [x] The suite is green and Ruff is clean.

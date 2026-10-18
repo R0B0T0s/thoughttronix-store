@@ -8,7 +8,8 @@ Demo logins (documented in the README):
 
     admin / admin123        superuser
     employee / employee123  staff, "Junior Thought Curator"
-    customer / customer123  a plain customer, with order history and a live cart
+    customer / customer123  a plain customer, with order history, a live cart,
+                            and a wishlist
 """
 
 import random
@@ -29,6 +30,7 @@ from coupons.models import Coupon
 from orders.models import Cart, Order, OrderItem
 from products.images import validate_product_image
 from products.models import Category, Product, Tag
+from wishlist.models import Wishlist
 
 TAGS = [
     "always listening",
@@ -494,6 +496,15 @@ CUSTOMER_CART = [
     ("whisper-alarm-clock", 1),
 ]
 
+# The customer demo login's wishlist, oldest save first (so the page, which
+# lists newest first, shows them in reverse). SoulSear Mark I is unavailable,
+# so the demo shows the "Unavailable" badge.
+CUSTOMER_WISHLIST = [
+    "soulsear-mark-i",
+    "recallpro",
+    "pulse-halo",
+]
+
 # The customer demo login's visible order history: (days ago, status,
 # [(product slug, quantity), ...]). Statuses follow age, like the
 # background orders, plus one recent order still in flight.
@@ -547,6 +558,7 @@ class Command(BaseCommand):
         images_attached = self._attach_images()
         self._create_users()
         self._create_customer_cart()
+        self._create_customer_wishlist()
         self._create_orders()
         self._create_coupons()
 
@@ -559,7 +571,8 @@ class Command(BaseCommand):
                 f"{get_user_model().objects.count()} users, "
                 f"{Order.objects.count()} orders, "
                 f"{Coupon.objects.count()} coupons, "
-                f"and a live cart for 'customer'."
+                f"and a live cart and a {len(CUSTOMER_WISHLIST)}-item wishlist "
+                f"for 'customer'."
             )
         )
 
@@ -567,6 +580,7 @@ class Command(BaseCommand):
         """Remove everything the seed owns; the rebuild starts from zero."""
         Order.objects.all().delete()
         Cart.objects.all().delete()
+        Wishlist.objects.all().delete()
         Coupon.objects.all().delete()
         Product.objects.all().delete()
         Tag.objects.all().delete()
@@ -668,6 +682,12 @@ class Command(BaseCommand):
         cart = Cart.for_user(customer)
         for slug, quantity in CUSTOMER_CART:
             cart.items.create(product=Product.objects.get(slug=slug), quantity=quantity)
+
+    def _create_customer_wishlist(self):
+        customer = get_user_model().objects.get(username="customer")
+        wishlist = Wishlist.for_user(customer)
+        for slug in CUSTOMER_WISHLIST:
+            wishlist.add(Product.objects.get(slug=slug))
 
     def _create_orders(self):
         """Order history: 4 visible orders for 'customer', 48 background.
