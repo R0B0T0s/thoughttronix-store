@@ -21,6 +21,11 @@
               {% endif %}
             </div>
           </div>
+          <button class="btn btn-ghost btn-sm text-error"
+                  hx-post="{% url 'wishlist:remove_item' product.pk %}"
+                  hx-target="#wishlist-items">
+            Remove
+          </button>
         </li>
       {% endwith %}
     {% endfor %}

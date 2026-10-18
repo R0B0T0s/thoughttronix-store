@@ -455,3 +455,85 @@ def test_navbar_hides_wishlist_link_from_visitors(client, db):
     response = client.get(reverse("products:catalog"))
 
     assert f'href="{reverse("wishlist:detail")}"' not in response.content.decode()
+
+
+# --- Removing from the wishlist page (HTMX) ----------------------------------
+
+
+def test_remove_item_returns_the_list_without_it(
+    client, customer, wishlist, product, unavailable_product
+):
+    wishlist.add(product)
+    wishlist.add(unavailable_product)
+    client.force_login(customer)
+
+    response = client.post(reverse("wishlist:remove_item", args=[product.pk]))
+
+    page = response.content.decode()
+    assert response.status_code == HTTPStatus.OK
+    assert product.name not in page
+    assert unavailable_product.name in page
+    assert "<html" not in page
+    assert not wishlist.contains(product)
+
+
+def test_remove_item_never_touches_another_users_wishlist(
+    client, customer, wishlist, product
+):
+    other = get_user_model().objects.create_user(username="other", password="pw")
+    other_wishlist = Wishlist.for_user(other)
+    other_wishlist.add(product)
+    client.force_login(customer)
+
+    response = client.post(reverse("wishlist:remove_item", args=[product.pk]))
+
+    assert response.status_code == HTTPStatus.OK
+    assert other_wishlist.contains(product)
+    assert product.name not in response.content.decode()
+
+
+def test_remove_item_requires_login(client, wishlist, product):
+    wishlist.add(product)
+
+    response = client.post(reverse("wishlist:remove_item", args=[product.pk]))
+
+    assert response.status_code == HTTPStatus.FOUND
+    assert reverse("accounts:login") in response.url
+    assert wishlist.contains(product)
+
+
+def test_remove_item_is_post_only(client, customer, wishlist, product):
+    wishlist.add(product)
+    client.force_login(customer)
+
+    response = client.get(reverse("wishlist:remove_item", args=[product.pk]))
+
+    assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
+    assert wishlist.contains(product)
+
+
+def test_removing_the_last_item_returns_the_empty_state(
+    client, customer, wishlist, product
+):
+    wishlist.add(product)
+    client.force_login(customer)
+
+    response = client.post(reverse("wishlist:remove_item", args=[product.pk]))
+
+    page = response.content.decode()
+    assert "Your wishlist is empty" in page
+    assert "<html" not in page
+
+
+def test_page_rows_have_a_remove_button_targeting_the_list(
+    client, customer, wishlist, product
+):
+    wishlist.add(product)
+    client.force_login(customer)
+
+    response = client.get(reverse("wishlist:detail"))
+
+    page = response.content.decode()
+    assert f'hx-post="{reverse("wishlist:remove_item", args=[product.pk])}"' in page
+    assert 'hx-target="#wishlist-items"' in page
+    assert 'id="wishlist-items"' in page

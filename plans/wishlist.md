@@ -159,11 +159,11 @@ empty state.
 
 ### Acceptance criteria
 
-- [ ] `wishlist:remove_item` is POST-only and redirects anonymous requests to sign-in.
-- [ ] A successful removal returns the list partial (not the full page) without the removed item.
-- [ ] Removing the last item returns the empty state.
-- [ ] A request naming a product saved only on another user's wishlist leaves that wishlist unchanged.
-- [ ] The suite is green and Ruff is clean.
+- [x] `wishlist:remove_item` is POST-only and redirects anonymous requests to sign-in.
+- [x] A successful removal returns the list partial (not the full page) without the removed item.
+- [x] Removing the last item returns the empty state.
+- [x] A request naming a product saved only on another user's wishlist leaves that wishlist unchanged.
+- [x] The suite is green and Ruff is clean.
 
 ---
 

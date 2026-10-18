@@ -39,6 +39,11 @@ class Wishlist(models.Model):
         """Remove a product; removing an unsaved product is a no-op."""
         self.items.filter(product=product).delete()
 
+    def listing(self):
+        """Saved items, newest first, with products (and the category their
+        placeholder image comes from) loaded in the same query."""
+        return self.items.select_related("product__category")
+
     def contains(self, product):
         """Whether the product is currently saved."""
         return self.items.filter(product=product).exists()

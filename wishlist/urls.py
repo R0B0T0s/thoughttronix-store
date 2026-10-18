@@ -12,4 +12,9 @@ urlpatterns = [
         views.RemoveFromWishlistView.as_view(),
         name="remove",
     ),
+    path(
+        "wishlist/items/<int:pk>/remove/",
+        views.RemoveWishlistItemView.as_view(),
+        name="remove_item",
+    ),
 ]

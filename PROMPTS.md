@@ -28,6 +28,21 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Wishlist Phase 4: remove from the wishlist page
+
+### Prompts
+1. implement phase 4
+2. approved (the two TDD behaviors: removal returns the list without the item, and another user's wishlist is never touched)
+3. approve (test 1)
+4. Lets move on (test 1 green; on to test 2)
+5. Approve (test 2)
+6. Manual verification has passed.
+
+### Summary
+- **Outcome:** Added `wishlist:remove_item` at `wishlist/items/<pk>/remove/`. It's POST-only and requires sign-in. It deletes `wishlist.items.filter(product_id=pk)` from the signed-in user's own wishlist and re-renders `wishlist/partials/_list.html`; when the last item goes, that's the empty state. Each row on the wishlist page has a red "Remove" button (`hx-post`, `hx-target="#wishlist-items"`). The products-loaded query moved onto the model as `Wishlist.listing()`, so the page and the endpoint load items the same way; the Phase 3 query-count test still covers it. Two behaviors were built test-first: removal returns the list partial without the item, and naming a product saved only on another user's wishlist leaves their list unchanged. Four more tests cover the sign-in redirect, POST-only, the last removal showing the empty state, and the Remove button markup. That makes 48 wishlist tests; the full suite passed at 390 and ruff is clean. Ticked off Phase 4 in `plans/wishlist.md`. Manual browser verification passed.
+- **Deviations:** None overridden. I flagged one choice: an unsaved or stale product pk does nothing and returns the current list rather than a 404, so a double-click still redraws correctly. The plan didn't specify either way, and the user moved on without changing it.
+- **Sideways:** The second TDD test (another user's wishlist) passed on its first run, because the one-line fix for test 1 was already limited to the user's own wishlist. It never went red against the real code. To show the test does catch a regression, I briefly swapped in an unscoped `WishlistItem.objects.filter(...).delete()`, watched the test fail on `other_wishlist.contains(product)`, and restored the scoped version. I didn't open the page in a browser myself; the user did.
+
 ## 2026-10-17 — Wishlist Phase 3: the wishlist page and navbar link (with Phases 1–2)
 
 ### Prompts

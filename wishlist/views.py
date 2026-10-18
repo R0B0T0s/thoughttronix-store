@@ -21,10 +21,25 @@ class WishlistView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["items"] = Wishlist.for_user(self.request.user).items.select_related(
-            "product__category"
-        )
+        context["items"] = Wishlist.for_user(self.request.user).listing()
         return context
+
+
+class RemoveWishlistItemView(LoginRequiredMixin, View):
+    """HTMX: remove a product from the wishlist page; the list swaps whole.
+
+    The product is resolved through the signed-in user's own wishlist, so
+    an entry on anyone else's wishlist can never be touched.
+    """
+
+    def post(self, request, pk):
+        wishlist = Wishlist.for_user(request.user)
+        wishlist.items.filter(product_id=pk).delete()
+        return render(
+            request,
+            "wishlist/partials/_list.html",
+            {"items": wishlist.listing()},
+        )
 
 
 class AddToWishlistView(LoginRequiredMixin, View):
