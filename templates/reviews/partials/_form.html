@@ -1,6 +1,8 @@
 {# The author review form: star radios and an optional comment. Include #}
 {# with form=<AuthorReviewForm> and action=<URL it posts to>; the response #}
-{# replaces the whole Reviews section. #}
+{# replaces the whole Reviews section. Optional: submit_label (default #}
+{# "Post review") and cancel_url, which adds a Cancel button that #}
+{# re-fetches the section from that URL. #}
 <form hx-post="{{ action }}" hx-target="#reviews" hx-swap="outerHTML" class="space-y-4" novalidate>
   {% for error in form.non_field_errors %}
     <p class="text-sm text-error">{{ error }}</p>
@@ -27,5 +29,13 @@
     {% endfor %}
   </div>
 
-  <button type="submit" class="btn btn-primary btn-sm">Post review</button>
+  <div class="flex gap-2">
+    <button type="submit" class="btn btn-primary btn-sm">{{ submit_label|default:"Post review" }}</button>
+    {% if cancel_url %}
+      <button type="button" class="btn btn-ghost btn-sm"
+              hx-get="{{ cancel_url }}" hx-target="#reviews" hx-swap="outerHTML">
+        Cancel
+      </button>
+    {% endif %}
+  </div>
 </form>

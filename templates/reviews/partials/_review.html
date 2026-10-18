@@ -1,5 +1,6 @@
 {# One review's details — the body of a list card and of the pinned #}
-{# "Your review" box. Include with review=<Review>. #}
+{# "Your review" box. Include with review=<Review>; can_edit=True adds an #}
+{# Edit button that swaps the section to the in-place edit form. #}
 <div class="flex flex-wrap items-center gap-2">
   <span class="font-semibold">{{ review.reviewer_name }}</span>
   <span class="badge badge-success badge-outline badge-sm">Verified purchase</span>
@@ -17,3 +18,11 @@
     <span class="badge badge-ghost badge-sm ml-1">Edited by staff</span>
   {% endif %}
 </p>
+{% if can_edit %}
+  <div class="mt-3">
+    <button type="button" class="btn btn-outline btn-sm"
+            hx-get="{% url 'reviews:edit' review.pk %}" hx-target="#reviews" hx-swap="outerHTML">
+      Edit
+    </button>
+  </div>
+{% endif %}

@@ -17,11 +17,12 @@ from .forms import AuthorReviewForm
 from .models import Review
 
 
-def section_context(user, product, form=None):
+def section_context(user, product, form=None, editing=None):
     """Everything the Reviews section shows: the summary, the user's own
     review (pinned in "Your review"), everyone else's reviews, and — when
     the user may post one — the author form (``form`` when re-rendering an
-    invalid submission)."""
+    invalid submission). ``editing`` is the review shown as ``form`` in
+    place, for editing."""
     reviews = product.reviews.select_related("user")
     own_review = None
     if user.is_authenticated:
@@ -35,14 +36,15 @@ def section_context(user, product, form=None):
         "own_review": own_review,
         "reviews": [r for r in reviews if r is not own_review],
         "form": form,
+        "editing": editing,
     }
 
 
-def render_section(request, product, form=None):
+def render_section(request, product, form=None, editing=None):
     return render(
         request,
         "reviews/partials/_section.html",
-        section_context(request.user, product, form),
+        section_context(request.user, product, form, editing),
     )
 
 
@@ -78,3 +80,33 @@ class CreateReviewView(LoginRequiredMixin, View):
         except IntegrityError:
             pass  # A simultaneous request posted it first; show that one.
         return render_section(request, product)
+
+
+class EditReviewView(LoginRequiredMixin, View):
+    """HTMX: GET swaps the author's "Your review" box to a pre-filled form in
+    place; POST saves the edit. Either way the section comes back.
+
+    Only the author edits here for now; staff moderation of others' reviews
+    (comment only) arrives with the staff form.
+    """
+
+    def get_review(self, request, pk):
+        review = get_object_or_404(Review, pk=pk)
+        if review.user_id != request.user.pk:
+            raise PermissionDenied
+        return review
+
+    def get(self, request, pk):
+        review = self.get_review(request, pk)
+        form = AuthorReviewForm(instance=review)
+        return render_section(request, review.product, form, editing=review)
+
+    def post(self, request, pk):
+        review = self.get_review(request, pk)
+        form = AuthorReviewForm(request.POST, instance=review)
+        if not form.is_valid():
+            # The section re-reads reviews from the database, so the saved
+            # version shows everywhere but the form, which keeps the input.
+            return render_section(request, review.product, form, editing=review)
+        review.author_edit(form.cleaned_data["rating"], form.cleaned_data["comment"])
+        return render_section(request, review.product)

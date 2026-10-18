@@ -21,8 +21,12 @@
            class="link link-primary">
           Sign in to review this product
         </a>
+      {% elif own_review and editing == own_review %}
+        {% url 'reviews:edit' own_review.pk as edit_url %}
+        {% url 'reviews:section' product.pk as section_url %}
+        {% include "reviews/partials/_form.html" with action=edit_url cancel_url=section_url submit_label="Save changes" %}
       {% elif own_review %}
-        {% include "reviews/partials/_review.html" with review=own_review %}
+        {% include "reviews/partials/_review.html" with review=own_review can_edit=True %}
       {% elif form %}
         {% url 'reviews:create' product.pk as create_url %}
         {% include "reviews/partials/_form.html" with action=create_url %}

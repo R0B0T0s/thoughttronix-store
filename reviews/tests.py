@@ -93,6 +93,27 @@ def test_can_review_only_a_signed_in_purchaser_who_has_not_reviewed(
     assert not Review.can_review(customer, purchased_product)
 
 
+def test_author_edit_changes_rating_and_comment_and_clears_the_staff_flag(review):
+    Review.objects.filter(pk=review.pk).update(edited_by_staff=True)
+    review.refresh_from_db()
+
+    review.author_edit(rating=2, comment="Started answering my thoughts.")
+
+    review.refresh_from_db()
+    assert review.rating == 2
+    assert review.comment == "Started answering my thoughts."
+    assert not review.edited_by_staff
+
+
+def test_can_change_is_for_the_author_and_staff_only(
+    review, other_customer, staff_user
+):
+    assert review.can_change(review.user)
+    assert review.can_change(staff_user)
+    assert not review.can_change(other_customer)
+    assert not review.can_change(AnonymousUser())
+
+
 def test_review_is_registered_in_the_admin():
     assert admin.site.is_registered(Review)
 
@@ -424,6 +445,122 @@ def test_the_section_view_404s_on_a_missing_product(client, db):
     response = client.get(reverse("reviews:section", kwargs={"pk": 999}))
 
     assert response.status_code == 404
+
+
+# --- Editing a review ----------------------------------------------------------
+
+
+def edit(client, review, **data):
+    return client.post(reverse("reviews:edit", kwargs={"pk": review.pk}), data)
+
+
+def test_an_author_edit_saves_and_shows_edited_even_after_cancelling(client, review):
+    # Posted an hour ago; the order it was bought on has since been cancelled.
+    Review.objects.filter(pk=review.pk).update(
+        created_at=timezone.now() - timedelta(hours=1)
+    )
+    review.user.orders.update(status="CANCELLED")
+    client.force_login(review.user)
+
+    response = edit(client, review, rating=2, comment="Started finishing my sentences.")
+
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (2, "Started finishing my sentences.")
+    assert response.status_code == 200
+    assert "Started finishing my sentences." in response.text
+    assert "Hears me even when I whisper." not in response.text
+    assert "(edited)" in response.text
+    assert "2.0 out of 5" in response.text
+
+
+def test_another_customer_cannot_edit_a_review(client, review, other_customer):
+    client.force_login(other_customer)
+    edit_url = reverse("reviews:edit", kwargs={"pk": review.pk})
+
+    assert client.get(edit_url).status_code == 403
+    assert edit(client, review, rating=1, comment="Hijacked.").status_code == 403
+
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (4, "Hears me even when I whisper.")
+
+
+def test_the_edit_form_comes_pre_filled_in_place(client, review):
+    client.force_login(review.user)
+
+    response = client.get(reverse("reviews:edit", kwargs={"pk": review.pk}))
+
+    text = response.text
+    assert response.status_code == 200
+    assert 'id="reviews"' in text
+    assert "<html" not in text
+    edit_url = reverse("reviews:edit", kwargs={"pk": review.pk})
+    section_url = reverse("reviews:section", kwargs={"pk": review.product.pk})
+    assert f'hx-post="{edit_url}"' in text
+    assert f'hx-get="{section_url}"' in text  # Cancel
+    assert "Save changes" in text
+    assert ">Hears me even when I whisper.</textarea>" in text
+    assert re.search(r'value="4"[^>]*checked', text)
+    assert not re.search(r'value="[1235]"[^>]*checked', text)
+
+
+@pytest.mark.parametrize(
+    "data, error",
+    [
+        ({"comment": "No stars this time."}, "Choose a star rating."),
+        ({"rating": 2, "comment": "x" * 2001}, "at most 2000 characters"),
+    ],
+)
+def test_an_invalid_edit_keeps_the_input_and_the_review(client, review, data, error):
+    client.force_login(review.user)
+
+    response = edit(client, review, **data)
+
+    assert response.status_code == 200
+    assert error in response.text
+    assert data["comment"] in response.text
+    assert "Save changes" in response.text  # still the edit form
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (4, "Hears me even when I whisper.")
+
+
+def test_cancel_returns_the_review_unchanged(client, review):
+    client.force_login(review.user)
+    client.get(reverse("reviews:edit", kwargs={"pk": review.pk}))
+
+    response = client.get(reverse("reviews:section", kwargs={"pk": review.product.pk}))
+
+    assert "Hears me even when I whisper." in response.text
+    assert 'aria-label="4 out of 5 stars"' in response.text
+    assert "Save changes" not in response.text
+    assert "(edited)" not in response.text
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_edit_redirects_anonymous_visitors_to_sign_in(client, review, method):
+    response = getattr(client, method)(
+        reverse("reviews:edit", kwargs={"pk": review.pk})
+    )
+
+    assert response.status_code == 302
+    assert response.url.startswith(reverse("accounts:login"))
+
+
+@pytest.mark.parametrize("method", ["get", "post"])
+def test_edit_404s_on_a_missing_review(client, customer, method):
+    client.force_login(customer)
+
+    response = getattr(client, method)(reverse("reviews:edit", kwargs={"pk": 999}))
+
+    assert response.status_code == 404
+
+
+def test_only_the_author_sees_the_edit_button(client, review, other_customer):
+    edit_url = reverse("reviews:edit", kwargs={"pk": review.pk})
+    client.force_login(review.user)
+    assert f'hx-get="{edit_url}"' in detail(client, review.product).text
+
+    client.force_login(other_customer)
+    assert f'hx-get="{edit_url}"' not in detail(client, review.product).text
 
 
 def test_the_catalog_grid_is_unchanged(client, review):

@@ -70,6 +70,19 @@ class Review(models.Model):
             and not cls.objects.filter(user=user, product=product).exists()
         )
 
+    def can_change(self, user):
+        """Whether the user may edit or delete this review: its author, or
+        any staff member."""
+        return user.is_authenticated and (user.pk == self.user_id or user.is_staff)
+
+    def author_edit(self, rating, comment):
+        """The author rewrites their review: new stars and comment. It's
+        theirs again, so any "Edited by staff" marker is cleared."""
+        self.rating = rating
+        self.comment = comment
+        self.edited_by_staff = False
+        self.save()
+
     @property
     def reviewer_name(self):
         """First name and last initial ("Casey M."), never the full name;

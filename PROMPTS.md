@@ -28,6 +28,24 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 3: author edit and cancel
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 3`
+2. I approve (the three TDD behaviors: `author_edit`, saving an edit shows "(edited)" even after the order is cancelled, another customer gets 403)
+3. Pass it (`author_edit` test)
+4. yes, move on to behavior 2
+5. Pass it (edit-save test)
+6. Move on
+7. Pass it (403 test)
+8. Go ahead (the rest of Phase 3)
+9. Everything works. Manual review passed
+
+### Summary
+- **Outcome:** Three behaviors were built test-first, each shown failing on an assertion and approved before being made to pass. (1) `Review.author_edit(rating, comment)` saves both fields and clears `edited_by_staff`. (2) POST `reviews:edit` validates with `AuthorReviewForm`, applies `author_edit`, and returns the section with the new comment, "(edited)", and an updated summary, even after the author's only order is cancelled. (3) Another signed-in customer gets 403 on GET and POST and the review is unchanged. `Review.can_change(user)` (author or any staff) was added and unit-tested. For now the edit view lets only the author through: staff editing others' reviews waits for Phase 5's comment-only form, so staff can't change a customer's stars through the author form in the meantime. The rest was built and tested normally. `section_context`/`render_section` gained an `editing` argument. GET `reviews:edit` swaps the pinned "Your review" box to a pre-filled form ("Save changes" plus a Cancel button that re-fetches `reviews:section`). Invalid edits re-render that form with errors and input kept, leaving the saved review untouched. The pinned review gained an Edit button, shown only to its author. `_form.html` gained optional `submit_label` and `cancel_url`, and `_review.html` an optional `can_edit`. The reviews suite went from 41 to 54 tests; the full suite has 450 passing, and Ruff is clean. The user verified the phase manually in the browser.
+- **Deviations:** None. Every proposal was approved as made.
+- **Sideways:** The first RED run of the `author_edit` test was blocked by the auto-mode permission check. Plan mode was then switched on mid-cycle, after the stub and test had been written, so the remaining steps were written up as a plan and approved before the run went ahead. My first 403 check (`can_change(...) and user is the author`) was redundant; it was simplified to the author check after going green, with no change in behavior. The full-suite run went past the 2-minute foreground timeout and finished in the background (450 passed in about 2 minutes). `ruff format` reformatted `reviews/tests.py`. The untracked `.claude/skills/` folders were left alone.
+
 ## 2026-10-18 — Product reviews Phase 2: post a review
 
 ### Prompts
