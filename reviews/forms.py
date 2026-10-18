@@ -20,3 +20,12 @@ class AuthorReviewForm(forms.ModelForm):
     class Meta:
         model = Review
         fields = ["rating", "comment"]
+
+
+class StaffReviewForm(forms.ModelForm):
+    """Staff moderating someone else's review: the comment only. There's no
+    rating field, so a posted rating is never read."""
+
+    class Meta:
+        model = Review
+        fields = ["comment"]

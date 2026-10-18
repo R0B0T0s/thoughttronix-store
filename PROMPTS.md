@@ -28,6 +28,23 @@ Each entry has this shape:
     - **Deviations:** recommendations overridden, follow-up questions asked
     - **Sideways:** failures, wrong turns, and how they were caught
 
+## 2026-10-18 — Product reviews Phase 5: staff moderation edit
+
+### Prompts
+1. `/implement @prd/reviews.md @plans/reviews.md implement phase 5`
+2. approved (the three TDD behaviors: `staff_edit` changes only the comment and sets the flag; a staff save of another user's review ignores the posted rating and shows "Edited by staff"; staff editing their own review get the full author form and saving clears the flag)
+3. Yes (approve the `staff_edit` test and make it pass)
+4. Yes (move on to behavior 2)
+5. Approved (the staff-save test)
+6. Yes (move on to behavior 3)
+7. Continue (keep behavior 3's test as a regression guard and do the rest of Phase 5)
+8. Everything works (manual verification passed)
+
+### Summary
+- **Outcome:** Added `Review.staff_edit(comment)`, which saves only the comment, the staff flag, and the timestamp (`update_fields`), so the rating can't change. Added the comment-only `StaffReviewForm`. `EditReviewView` now allows anyone `can_change` permits. Authors, including staff editing their own review, get the author form and `author_edit`; staff editing someone else's review get the staff form and `staff_edit`. `section_context` now hands the template a separate `edit_form` next to the create `form`. In the list, staff see Edit on every review, and the card being moderated swaps in place to the reviewer's name, read-only stars, a "the customer's rating can't be changed" note, and the comment-only form with Cancel. `_form.html` shows the star radios only when the form has a rating field. Added 7 tests (3 TDD, 4 normal) and removed `test_only_the_author_sees_the_edit_button`, which the new Edit-buttons test replaces; the reviews suite is at 67, the full suite passed (464, run before that removal), and Ruff is clean. The user verified the phase manually in the browser.
+- **Deviations:** None. Every proposal was approved as made.
+- **Sideways:** Behavior 1's rating assertion already passed against the no-op stub; I said so when showing RED, and behavior 2's test covers a posted rating being ignored. Behavior 3's test was never RED, because behavior 2's form choice already checked authorship first. I said so and ran a temporary mutation (staff always get the staff form) to show the test catches it, then restored `views.py`. While building the templates I found that a staff member who had bought the product would see the staff form in their own empty "Your review" box while moderating, since both forms shared the `form` context variable; I split it into `form` and `edit_form` and added a test. The full-suite run went past the 2-minute foreground timeout and finished in the background. The untracked `.claude/skills/` folders were left alone.
+
 ## 2026-10-18 — Product reviews Phase 4: delete a review
 
 ### Prompts

@@ -1,20 +1,23 @@
-{# The author review form: star radios and an optional comment. Include #}
-{# with form=<AuthorReviewForm> and action=<URL it posts to>; the response #}
-{# replaces the whole Reviews section. Optional: submit_label (default #}
-{# "Post review") and cancel_url, which adds a Cancel button that #}
-{# re-fetches the section from that URL. #}
+{# A review form: star radios and an optional comment. Include with #}
+{# form=<AuthorReviewForm or StaffReviewForm> and action=<URL it posts #}
+{# to>; the response replaces the whole Reviews section. The staff form #}
+{# has no rating field, so it shows the comment only. Optional: #}
+{# submit_label (default "Post review") and cancel_url, which adds a #}
+{# Cancel button that re-fetches the section from that URL. #}
 <form hx-post="{{ action }}" hx-target="#reviews" hx-swap="outerHTML" class="space-y-4" novalidate>
   {% for error in form.non_field_errors %}
     <p class="text-sm text-error">{{ error }}</p>
   {% endfor %}
 
-  <fieldset>
-    <legend class="mb-1 font-semibold">Rating</legend>
-    {% include "reviews/partials/_stars.html" with name=form.rating.html_name rating=form.rating.value|default:0 size="rating-lg" %}
-    {% for error in form.rating.errors %}
-      <p class="mt-1 text-sm text-error">{{ error }}</p>
-    {% endfor %}
-  </fieldset>
+  {% if "rating" in form.fields %}
+    <fieldset>
+      <legend class="mb-1 font-semibold">Rating</legend>
+      {% include "reviews/partials/_stars.html" with name=form.rating.html_name rating=form.rating.value|default:0 size="rating-lg" %}
+      {% for error in form.rating.errors %}
+        <p class="mt-1 text-sm text-error">{{ error }}</p>
+      {% endfor %}
+    </fieldset>
+  {% endif %}
 
   <div>
     <label for="{{ form.comment.id_for_label }}" class="mb-1 block font-semibold">

@@ -83,6 +83,14 @@ class Review(models.Model):
         self.edited_by_staff = False
         self.save()
 
+    def staff_edit(self, comment):
+        """Staff moderate the review's text — say, to remove abusive words.
+        Only the comment changes; the customer's stars never do. The review
+        is marked "Edited by staff"."""
+        self.comment = comment
+        self.edited_by_staff = True
+        self.save(update_fields=["comment", "edited_by_staff", "updated_at"])
+
     @property
     def reviewer_name(self):
         """First name and last initial ("Casey M."), never the full name;

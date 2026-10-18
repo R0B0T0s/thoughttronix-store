@@ -105,6 +105,15 @@ def test_author_edit_changes_rating_and_comment_and_clears_the_staff_flag(review
     assert not review.edited_by_staff
 
 
+def test_staff_edit_changes_only_the_comment_and_sets_the_staff_flag(review):
+    review.staff_edit(comment="[Removed by staff]")
+
+    review.refresh_from_db()
+    assert review.rating == 4
+    assert review.comment == "[Removed by staff]"
+    assert review.edited_by_staff
+
+
 def test_can_change_is_for_the_author_and_staff_only(
     review, other_customer, staff_user
 ):
@@ -554,13 +563,116 @@ def test_edit_404s_on_a_missing_review(client, customer, method):
     assert response.status_code == 404
 
 
-def test_only_the_author_sees_the_edit_button(client, review, other_customer):
-    edit_url = reverse("reviews:edit", kwargs={"pk": review.pk})
-    client.force_login(review.user)
-    assert f'hx-get="{edit_url}"' in detail(client, review.product).text
+# --- Staff moderation ----------------------------------------------------------
 
-    client.force_login(other_customer)
-    assert f'hx-get="{edit_url}"' not in detail(client, review.product).text
+
+def test_a_staff_edit_changes_only_the_comment_and_shows_edited_by_staff(
+    client, review, staff_user
+):
+    client.force_login(staff_user)
+
+    response = edit(client, review, rating=1, comment="[Removed by staff]")
+
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (4, "[Removed by staff]")
+    assert review.edited_by_staff
+    assert response.status_code == 200
+    assert "[Removed by staff]" in response.text
+    assert "Edited by staff" in response.text
+    assert "4.0 out of 5" in response.text
+
+
+def test_staff_editing_their_own_review_are_treated_as_the_author(
+    client, staff_user, product
+):
+    buy(staff_user, product)
+    review = Review.objects.create(
+        user=staff_user,
+        product=product,
+        rating=3,
+        comment="Mostly hears me.",
+        edited_by_staff=True,
+    )
+    client.force_login(staff_user)
+
+    form = client.get(reverse("reviews:edit", kwargs={"pk": review.pk})).text
+    response = edit(client, review, rating=5, comment="Hears me perfectly now.")
+
+    assert re.search(r'value="3"[^>]*checked', form)  # the full author form
+    review.refresh_from_db()
+    assert (review.rating, review.comment) == (5, "Hears me perfectly now.")
+    assert not review.edited_by_staff
+    assert "Edited by staff" not in response.text
+
+
+def test_staff_get_the_comment_only_form_in_place_on_the_card(
+    client, review, staff_user
+):
+    client.force_login(staff_user)
+
+    response = client.get(reverse("reviews:edit", kwargs={"pk": review.pk}))
+
+    text = response.text
+    assert response.status_code == 200
+    assert "<html" not in text
+    edit_url = reverse("reviews:edit", kwargs={"pk": review.pk})
+    section_url = reverse("reviews:section", kwargs={"pk": review.product.pk})
+    assert f'hx-post="{edit_url}"' in text
+    assert f'hx-get="{section_url}"' in text  # Cancel
+    assert ">Hears me even when I whisper.</textarea>" in text
+    assert 'type="radio"' not in text  # no rating to change
+    assert 'aria-label="4 out of 5 stars"' in text  # read-only stars instead
+    assert "the customer's rating can't be changed" in text
+
+
+def test_a_staff_buyer_moderating_keeps_their_own_empty_form(
+    client, review, staff_user
+):
+    buy(staff_user, review.product)
+    client.force_login(staff_user)
+
+    response = client.get(reverse("reviews:edit", kwargs={"pk": review.pk}))
+
+    create_url = reverse("reviews:create", kwargs={"pk": review.product.pk})
+    assert f'hx-post="{create_url}"' in response.text
+    assert "Post review" in response.text
+    assert response.text.count('type="radio"') == 5  # only their own form's stars
+
+
+def test_an_invalid_staff_edit_keeps_the_input_and_the_review(
+    client, review, staff_user
+):
+    client.force_login(staff_user)
+
+    response = edit(client, review, comment="x" * 2001)
+
+    assert "at most 2000 characters" in response.text
+    assert "x" * 2001 in response.text
+    assert "Save changes" in response.text
+    review.refresh_from_db()
+    assert review.comment == "Hears me even when I whisper."
+    assert not review.edited_by_staff
+
+
+def test_edit_buttons_show_only_to_the_author_and_staff(
+    client, review, other_customer, staff_user
+):
+    other_review = Review.objects.create(
+        user=other_customer, product=review.product, rating=2
+    )
+
+    def edit_buttons(user):
+        client.force_login(user)
+        text = detail(client, review.product).text
+        return {
+            r.pk
+            for r in (review, other_review)
+            if f'hx-get="{reverse("reviews:edit", kwargs={"pk": r.pk})}"' in text
+        }
+
+    assert edit_buttons(review.user) == {review.pk}
+    assert edit_buttons(other_customer) == {other_review.pk}
+    assert edit_buttons(staff_user) == {review.pk, other_review.pk}
 
 
 # --- Deleting a review ---------------------------------------------------------

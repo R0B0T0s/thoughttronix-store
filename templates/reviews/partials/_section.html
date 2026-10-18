@@ -24,7 +24,7 @@
       {% elif own_review and editing == own_review %}
         {% url 'reviews:edit' own_review.pk as edit_url %}
         {% url 'reviews:section' product.pk as section_url %}
-        {% include "reviews/partials/_form.html" with action=edit_url cancel_url=section_url submit_label="Save changes" %}
+        {% include "reviews/partials/_form.html" with form=edit_form action=edit_url cancel_url=section_url submit_label="Save changes" %}
       {% elif own_review %}
         {% include "reviews/partials/_review.html" with review=own_review can_edit=True can_delete=True %}
       {% elif form %}
@@ -41,8 +41,21 @@
       {% for review in reviews %}
         <li class="rounded-box bg-base-100 p-4 shadow-md">
           {# Never the user's own review (that's pinned above), so only #}
-          {# staff may change these. #}
-          {% include "reviews/partials/_review.html" with can_delete=user.is_staff %}
+          {# staff may change these — and only the comment. #}
+          {% if editing == review %}
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold">{{ review.reviewer_name }}</span>
+              {% include "reviews/partials/_stars.html" with rating=review.rating %}
+            </div>
+            <p class="mb-3 mt-1 text-sm opacity-70">
+              Staff edit — the comment only; the customer's rating can't be changed.
+            </p>
+            {% url 'reviews:edit' review.pk as edit_url %}
+            {% url 'reviews:section' product.pk as section_url %}
+            {% include "reviews/partials/_form.html" with form=edit_form action=edit_url cancel_url=section_url submit_label="Save changes" %}
+          {% else %}
+            {% include "reviews/partials/_review.html" with can_edit=user.is_staff can_delete=user.is_staff %}
+          {% endif %}
         </li>
       {% endfor %}
     </ul>
